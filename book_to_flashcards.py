@@ -7,13 +7,14 @@ import deepl
 
 @click.command()
 @click.argument('inputfile', type=click.File(mode="r", encoding="utf-8"))
-@click.option('--lang', help='Code for language to translate into e.g. EN-US')
-@click.option('--outputfolder', type=click.Path(exists=True, file_okay=True, writable=True), default=os.getcwd(), help='Where to put the csv output')
+@click.option('--pipeline', help="Name of spacy pipeline to read file") # ru_core_news_sm
+@click.option('--lang', help='Code for language that DeepL will translate into e.g. EN-US')
+@click.option('--outputfolder', type=click.Path(exists=True, file_okay=True, writable=True), default=os.getcwd(), help='Where to put the csv output (defaults to cwd)')
 @click.option('--maxfieldlen', type=click.IntRange(30), default = 70, help='The maximum desired length of a text field (translations may be longer)')
 @click.option('--translate/--notranslate', default = False, help= 'Add translations to file (otherwise dummy translations are used)')
 @click.option('--deeplkey', envvar='DEEPL_KEY', help='API key for DeepL (required for translations)')
-def make_flashcard_csv(inputfile, outputfolder, lang: str, maxfieldlen: int, translate: False, deeplkey: str):
-    nlp = make_nlp()
+def make_flashcard_csv(inputfile, pipeline: str, outputfolder: str, lang: str, maxfieldlen: int, translate: False, deeplkey: str):
+    nlp = make_nlp(pipeline)
     if(translate):
         translator = deepl.Translator(deeplkey)
 

@@ -7,7 +7,7 @@ class TestSentenceSplitting(unittest.TestCase):
         "Дедушка Ириней очень любил маленьких детей, т.е. таких детей, которые умны, слушают, когда им что говорят, не зевают по сторонам и не глядят в окошко, когда маменька им показывает книжку"
     ]
     max_chars = 70
-    nlp = make_nlp()
+    nlp = make_nlp("ru_core_news_sm")
 
     def __test_all_sentences(self, test_fn):
         for s in self.teststrings:

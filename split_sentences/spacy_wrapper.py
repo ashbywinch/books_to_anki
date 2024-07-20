@@ -22,10 +22,8 @@ def tidy_doc_punctuation(doc: Doc) -> Doc:
             retokenizer.merge(span, attrs=attrs)
     return doc
 
-def make_nlp():
-    nlp = spacy.load("ru_core_news_sm")
-    
-    nlp.add_pipe("sentencizer")
+def make_nlp(pipeline: str):
+    nlp = spacy.load(pipeline, exclude=["lemmatizer", "ner", "attribute_ruler"]) 
     nlp.add_pipe("tidy_punctuation")
     assert isinstance(nlp.tokenizer, Tokenizer)
 

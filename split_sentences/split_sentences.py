@@ -1,5 +1,4 @@
 from spacy.tokens import Doc, Span, Token
-from spacy import Language
 import bisect
 
 def are_consecutive(a: Span, b: Span) -> bool:
