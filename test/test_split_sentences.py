@@ -1,4 +1,4 @@
-from split_sentences import make_nlp, split_sentence, tidy_doc_punctuation, consolidate_spans
+from split_sentences import make_nlp, split_sentence, consolidate_spans
 import unittest
 
 class TestSentenceSplitting(unittest.TestCase):
@@ -13,7 +13,6 @@ class TestSentenceSplitting(unittest.TestCase):
         for s in self.teststrings:
             docs = self.nlp.pipe([s])
             for doc in docs:
-                doc = tidy_doc_punctuation(doc)
                 for sent in doc.sents:
                     test_fn(doc, sent)
 

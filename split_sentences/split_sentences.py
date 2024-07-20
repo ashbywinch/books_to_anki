@@ -1,4 +1,5 @@
 from spacy.tokens import Doc, Span, Token
+from spacy import Language
 import bisect
 
 def are_consecutive(a: Span, b: Span) -> bool:
@@ -36,24 +37,6 @@ def consolidated_spans_in_tree(doc: Doc, root_token: Token, max_span_length = No
     all_spans_in_tree = consolidate_spans(doc, all_spans_in_tree, max_span_length)
     
     return all_spans_in_tree
-
-def tidy_doc_punctuation(doc: Doc) -> Doc:
-    '''Retokenize so all punctuation becomes part of its preceding non-punctuation token'''
-    spans = []
-    for word in doc[:-1]:
-        if word.is_punct or not word.nbor(1).is_punct:
-            continue
-        start = word.i
-        end = word.i + 1
-        while end < len(doc) and doc[end].is_punct:
-            end += 1
-        span = doc[start:end]
-        spans.append((span, word.tag_, word.lemma_, word.ent_type_))
-    with doc.retokenize() as retokenizer:
-        for span, tag, lemma, ent_type in spans:
-            attrs = {"tag": tag, "lemma": lemma, "ent_type": ent_type}
-            retokenizer.merge(span, attrs=attrs)
-    return doc
 
 def split_sentence(doc: Doc, sentence: Span, max_span_length: int) -> list[Span]:
     '''return all the text from the sentence, broken into spans no longer than max_span_length chars'''

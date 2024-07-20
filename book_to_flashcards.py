@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from split_sentences import make_nlp, split_sentence, tidy_doc_punctuation
+from split_sentences import make_nlp, split_sentence
 import unicodecsv
 import click
 import deepl
@@ -26,7 +26,6 @@ def make_flashcard_csv(inputfile, outputfolder, lang: str, maxfieldlen: int, tra
         for line in inputfile:
             docs = nlp.pipe([line.strip()])
             for doc in docs:
-                doc = tidy_doc_punctuation(doc)
                 for s in doc.sents:
                     for next_span in split_sentence(doc, s, max_span_length = maxfieldlen):
                         if(current_span):
