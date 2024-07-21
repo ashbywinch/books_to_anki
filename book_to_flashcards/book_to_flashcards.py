@@ -33,13 +33,15 @@ def make_flashcard_csv(inputfile, pipeline: str, outputfolder: str, lang: str, m
                             if(translate):
                                 translation = translator.translate_text(current_span.text, target_lang=lang)
                             else:
-                                translation = "Translation placeholder"
+                                translation = ""
                         
                             writer.writerow((sentence_id,prev_span.text if prev_span else '', current_span.text, next_span.text, translation))
                         prev_span = current_span
                         current_span = next_span
                         sentence_id = sentence_id + 1
 
-        # write the very last row, which has no next span
-        writer.writerow((sentence_id, prev_span.text, current_span.text, '', translation))
+        if(translate):
+            # translate and write the very last row, which has no next span
+            translation = translator.translate_text(current_span.text, target_lang=lang)
+            writer.writerow((sentence_id, prev_span.text, current_span.text, '', translation))
 
