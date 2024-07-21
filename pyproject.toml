@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "book_language_tools"
+authors = [
+    {name = "Ashby Winch", email = "ashby@juggler.net"},
+]
+description = "Tools for learning languages from books"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "BSD-3-Clause"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    'Click',
+    'spacy',
+    'deepl',
+    'unicodecsv',
+    'importlib-metadata; python_version<"3.10"',
+]
+dynamic = ["version"]
+
+[project.scripts]
+make-flashcards = "book_to_flashcards:make_flashcard_csv"
