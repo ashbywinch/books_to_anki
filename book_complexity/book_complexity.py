@@ -55,8 +55,10 @@ def book_complexity(inputfile, nlp) -> Complexity:
         mean_words_per_sentence = int(word_count / sents_count) if sents_count > 0 else 0,
         mean_word_length = int(cumulative_word_length / word_count) if word_count > 0 else 0,
         mean_grammar_depth = round(cumulative_grammar_depth / sents_count, 1) if sents_count > 0 else 0,
+        overall_score = 0
     )
     complexity.overall_score = complexity.mean_words_per_sentence * complexity.mean_word_length * complexity.mean_grammar_depth
+    return complexity
 
 @click.command()
 @click.argument('inputfile', type=click.File(mode="r", encoding="utf-8"))
