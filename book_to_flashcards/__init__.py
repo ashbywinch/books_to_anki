@@ -1,1 +1,2 @@
-from .book_to_flashcards import make_flashcard_csv
+from .book_to_flashcards import generate_cards, cli_make_flashcard_csv
+from .book_to_anki import cli_books_to_anki
