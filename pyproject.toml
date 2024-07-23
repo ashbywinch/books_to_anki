@@ -21,7 +21,7 @@ dependencies = [
     'unicodecsv',
     'genanki',
     'importlib_resources',
-    'importlib-metadata; python_version<"3.10"',
+    'tabulate'
 ]
 dynamic = ["version"]
 
