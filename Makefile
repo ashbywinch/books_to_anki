@@ -24,7 +24,7 @@ setup: requirements.txt $(VENV_TARGET)
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt
 	$(PIP) install ruff
-	$(PIP) install build --user
+	$(PIP) install build
 	spacy download en_core_web_sm
 	spacy download ru_core_news_sm
 
