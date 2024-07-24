@@ -14,14 +14,14 @@ class TestBookComplexity(unittest.TestCase):
     def test_simple_sentence(self):
         """Are complexity calcs correct on a known short string?"""
         teststrings = [
-            """Дедушка поцеловал Лидиньку""",
+            """Дедушка поцеловал Лидиньку""",  # and let's not explode when we see non-Latin-1 text
         ]
         complexity = book_complexity(teststrings, self.nlp)
         self.assertEqual(complexity.mean_grammar_depth, 2)
         self.assertEqual(complexity.mean_words_per_sentence, 3)
         self.assertEqual(complexity.mean_word_length, 8)
         self.assertEqual(complexity.word_count, 3)
-        self.assertEqual(complexity.overall_score, 2*3*8)
+        self.assertEqual(complexity.overall_score, 2 * 3 * 8)
 
     def test_multiple_lines(self):
         """Are complexity calcs correct for multiple longer strings?"""
@@ -38,6 +38,13 @@ class TestBookComplexity(unittest.TestCase):
         self.assertEqual(complexity.mean_words_per_sentence, 26)
         self.assertEqual(complexity.mean_word_length, 5)
         self.assertEqual(complexity.mean_grammar_depth, 6.5)
+
+    def test_known_words(self):
+        teststrings = ["Bob likes green peas"]
+        known_words = {"likes", "peas"}
+        complexity = book_complexity(teststrings, self.nlp, known_words)
+        self.assertEqual(complexity.words_known, 2)
+        self.assertEqual(complexity.percent_words_known, 50)
 
 
 if __name__ == "__main__":

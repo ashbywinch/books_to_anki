@@ -103,38 +103,50 @@ def books_to_anki(
 
     decks: list[genanki.Deck] = []
 
-    for filename in filenames:
-        update_progress_on_each_file(filename)
-        deckname = make_deckname(filename, structure)
+    try:
+        for filename in filenames:
+            update_progress_on_each_file(filename)
+            deckname = make_deckname(filename, structure)
 
-        deck = genanki.Deck(
-            # a reasonably stable ID for this deck - hash the filename
-            int(hashlib.sha1(deckname.encode("utf-8")).hexdigest(), 16) % (2**32),
-            html.escape(deckname),
-        )
+            deck = genanki.Deck(
+                # a reasonably stable ID for this deck - hash the filename
+                int(hashlib.sha1(deckname.encode("utf-8")).hexdigest(), 16) % (2**32),
+                html.escape(deckname),
+            )
 
-        with open(filename.strip(), "r", encoding="utf-8") as file:
-            if translator:
-                cards = generate_cards(file, pipeline, maxfieldlen, translator, lang)
-            else:
-                cards = generate_cards_front_only(file, pipeline, maxfieldlen)
+            with open(filename.strip(), "r", encoding="utf-8") as file:
+                if translator:
+                    cards = generate_cards(
+                        file, pipeline, maxfieldlen, translator, lang
+                    )
+                else:
+                    cards = generate_cards_front_only(file, pipeline, maxfieldlen)
 
-            for card in cards:
-                note = BookNote(
-                    model=model,
-                    fields=[
-                        str(card.index_in_file),
-                        html.escape(Path(filename).stem),
-                        html.escape(card.prev),
-                        html.escape(card.current),
-                        html.escape(card.next),
-                        html.escape(
-                            str(card.translation)
-                        ),  # deepl translations are not strings
-                    ],
-                )
-                deck.add_note(note)
-            decks.append(deck)
+                for card in cards:
+                    note = BookNote(
+                        model=model,
+                        fields=[
+                            str(card.index_in_file),
+                            html.escape(Path(filename).stem),
+                            html.escape(card.prev),
+                            html.escape(card.current),
+                            html.escape(card.next),
+                            html.escape(
+                                str(card.translation)
+                            ),  # deepl translations are not strings
+                        ],
+                    )
+                    deck.add_note(note)
+                decks.append(deck)
+    except deepl.DeepLException as e:
+        # this takes a very long time, if it falls over we'd like to have some intermediate results!
+        # it can fall over because your DeepL key ran out.
+        genanki.Package(decks).write_to_file(ankifile)
+        print("Problem with DeepL:")
+        print(e)
+        if e.http_status_code == 413:
+            print("You may have reached the translation limits of your API key")
+
     genanki.Package(decks).write_to_file(ankifile)
 
 
