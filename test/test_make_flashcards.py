@@ -1,5 +1,6 @@
 """Test book_to_flashcards module"""
 
+from pathlib import Path
 import unittest
 
 from book_to_flashcards import (
@@ -51,6 +52,7 @@ class TestMakingCardsFromFile(unittest.TestCase):
         """Don't know how to validate an anki package, but at least we can check
         that the code doesn't fall over"""
         translator = ReverseTextTranslator()
+        Path("test/output/").mkdir(exist_ok=True)
         books_to_anki(
             ["test/data/dummy_books/dummy_book.txt"],
             "en_core_web_sm",
@@ -64,6 +66,7 @@ class TestMakingCardsFromFile(unittest.TestCase):
     def test_generate_anki_package_notranslate(self):
         """Don't know how to validate an anki package, but at least we can check
         that the code doesn't fall over"""
+        Path("test/output/").mkdir(exist_ok=True)
         books_to_anki(
             ["test/data/dummy_books/dummy_book.txt"],
             "en_core_web_sm",
