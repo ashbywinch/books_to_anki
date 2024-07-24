@@ -7,6 +7,8 @@ import hashlib
 import html
 from pathlib import Path
 
+from alive_progress import alive_bar
+
 import click
 import genanki
 import deepl
@@ -79,6 +81,10 @@ def make_deckname(filename, structure: bool):
     return Path(filename).stem
 
 
+def do_nothing(filename):
+    pass
+
+
 def books_to_anki(
     filenames: list[str],
     pipeline: str,
@@ -88,6 +94,7 @@ def books_to_anki(
     structure: bool,
     ankifile: str,
     fontsize: int,
+    update_progress_on_each_file=do_nothing,
 ):
     """Take a list of text files,
     and turn them all into a single Anki deck.
@@ -97,6 +104,7 @@ def books_to_anki(
     decks: list[genanki.Deck] = []
 
     for filename in filenames:
+        update_progress_on_each_file(filename)
         deckname = make_deckname(filename, structure)
 
         deck = genanki.Deck(
@@ -202,13 +210,15 @@ def cli_books_to_anki(
         text_files = glob.glob(inputfolder + "/**/*.txt", recursive=True)
 
     translator = deepl.Translator(deeplkey) if translate else None
-    books_to_anki(
-        text_files,
-        pipeline,
-        lang,
-        maxfieldlen,
-        translator,
-        structure,
-        ankifile,
-        fontsize,
-    )
+    with alive_bar(len(text_files), bar="bubbles", spinner="classic") as bar:
+        books_to_anki(
+            text_files,
+            pipeline,
+            lang,
+            maxfieldlen,
+            translator,
+            structure,
+            ankifile,
+            fontsize,
+            update_progress_on_each_file=lambda filename: (bar.text(filename), bar()),
+        )
