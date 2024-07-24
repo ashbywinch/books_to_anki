@@ -1,1 +1,2 @@
-from .book_complexity import book_complexity, book_complexity
+# ruff: noqa: F401
+from .book_complexity import book_complexity

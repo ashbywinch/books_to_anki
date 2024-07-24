@@ -1,4 +1,4 @@
-# pylint: disable(F401)
+# ruff: noqa: F401
 from .book_to_flashcards import (
     generate_cards,
     generate_cards_front_only,

@@ -20,6 +20,7 @@ dependencies = [
     'deepl',
     'unicodecsv',
     'genanki',
+    'jinja2',
     'importlib_resources',
     'tabulate'
 ]
@@ -30,4 +31,3 @@ book-to-flashcards = "book_to_flashcards.book_to_flashcards:cli_make_flashcard_c
 books-to-anki = "book_to_flashcards.book_to_anki:cli_books_to_anki"
 book-complexity = "book_complexity.book_complexity:cli_book_complexity"
 books-complexity = "book_complexity.book_complexity:cli_books_complexity"
-
