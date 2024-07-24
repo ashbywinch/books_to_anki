@@ -46,7 +46,7 @@ test:
 	$(PYTHON) -m unittest discover -s test
 
 $(VENV_TARGET): requirements.txt
-	$(PYTHON) -m venv $(VENV)
+	python3 -m venv $(VENV)
 
 .PHONY: dist
 dist:
