@@ -21,7 +21,7 @@ dependencies = [
     'unicodecsv',
     'genanki',
     'jinja2',
-    'alive-progress'
+    'alive-progress',
     'importlib_resources',
     'tabulate'
 ]
