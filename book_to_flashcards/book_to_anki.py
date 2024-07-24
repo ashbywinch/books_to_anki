@@ -10,6 +10,7 @@ from pathlib import Path
 import click
 import genanki
 import deepl
+import jinja2
 from importlib_resources import files
 
 import book_to_flashcards.resources
@@ -31,8 +32,17 @@ class BookNote(genanki.Note):
         return genanki.guid_for(self.fields[0], self.fields[1], self.fields[3])
 
 
-def make_model() -> genanki.Model:
+def make_model(font_size: int) -> genanki.Model:
     """Create the Anki model that we use to represent these book cards"""
+
+    # insert font size into CSS template to create actual CSS
+    environment = jinja2.Environment()
+    css_template_text = (
+        files(book_to_flashcards.resources).joinpath("styling.css.jinja").read_text()
+    )
+    css_template = environment.from_string(css_template_text)
+    css = css_template.render(font_size=font_size)
+
     return genanki.Model(
         1356306641,
         "Book Snippet",
@@ -55,7 +65,7 @@ def make_model() -> genanki.Model:
                 .read_text(),
             },
         ],
-        css=files(book_to_flashcards.resources).joinpath("styling.css").read_text(),
+        css=css,
     )
 
 
@@ -78,11 +88,12 @@ def books_to_anki(
     translator,
     structure: bool,
     ankifile: str,
+    fontsize: int,
 ):
     """Take a list of text files,
     and turn them all into a single Anki deck.
     Supports use of dummy translator for testing"""
-    model = make_model()
+    model = make_model(fontsize)
 
     decks: list[genanki.Deck] = []
 
@@ -97,9 +108,11 @@ def books_to_anki(
 
         with open(filename.strip(), "r", encoding="utf-8") as file:
             if translator:
-                cards = generate_cards(file, pipeline, maxfieldlen, translator, lang)
+                cards = generate_cards(
+                    file, pipeline, maxfieldlen, translator, lang, fontsize
+                )
             else:
-                cards = generate_cards_front_only(file, pipeline, maxfieldlen)
+                cards = generate_cards_front_only(file, pipeline, maxfieldlen, fontsize)
 
             for card in cards:
                 note = BookNote(
@@ -165,6 +178,12 @@ def books_to_anki(
     required=True,
     help="Name of an anki .apkg file to put the results",
 )
+@click.option(
+    "--fontsize",
+    type=click.IntRange(),
+    default=30,
+    help="Font size used for card text within Anki",
+)
 def cli_books_to_anki(
     inputfolder,
     structure,
@@ -175,6 +194,7 @@ def cli_books_to_anki(
     translate,
     deeplkey,
     ankifile,
+    fontsize,
 ):
     """Take a folder containing multiple books in text files,
     and turn them all into a single Anki deck"""
@@ -185,5 +205,12 @@ def cli_books_to_anki(
 
     translator = deepl.Translator(deeplkey) if translate else None
     books_to_anki(
-        text_files, pipeline, lang, maxfieldlen, translator, structure, ankifile
+        text_files,
+        pipeline,
+        lang,
+        maxfieldlen,
+        translator,
+        structure,
+        ankifile,
+        fontsize,
     )

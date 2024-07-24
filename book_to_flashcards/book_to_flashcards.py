@@ -24,7 +24,9 @@ class Card:
     translation: str
 
 
-def generate_cards_front_only(inputfile, pipeline, maxfieldlen) -> Generator[Card]:
+def generate_cards_front_only(
+    inputfile, pipeline, maxfieldlen, fontsize
+) -> Generator[Card]:
     """Take a single text file and produce a set of flash cards
     containing chunks not longer than maxfieldlen, with no translations included
     (so, just the front)
@@ -69,13 +71,16 @@ def generate_cards_front_only(inputfile, pipeline, maxfieldlen) -> Generator[Car
 
 
 def generate_cards(
-    inputfile, pipeline, maxfieldlen, translator, lang
+    inputfile, pipeline, maxfieldlen, translator, lang, fontsize
 ) -> Generator[Card]:
     """Take a single text file and produce a set of flash cards
     containing chunks not longer than maxfieldlen"""
 
     card_fronts = [
-        card for card in generate_cards_front_only(inputfile, pipeline, maxfieldlen)
+        card
+        for card in generate_cards_front_only(
+            inputfile, pipeline, maxfieldlen, fontsize
+        )
     ]
     # batch up all the translations, we don't want a round trip per card
     translations = translator.translate_text(
@@ -117,6 +122,12 @@ def generate_cards(
     envvar="DEEPL_KEY",
     help="API key for DeepL (required for translations)",
 )
+@click.option(
+    "--fontsize",
+    type=click.IntRange(),
+    default=40,
+    help="Font sized used for card text within Anki",
+)
 def cli_make_flashcard_csv(
     inputfile,
     pipeline: str,
@@ -125,6 +136,7 @@ def cli_make_flashcard_csv(
     maxfieldlen: int,
     translate: False,
     deeplkey: str,
+    fontsize: int,
 ):
     """Take a single text file and generate a csv file of flashcards, one card per line"""
     outputfile = Path(outputfolder, Path(inputfile.name).with_suffix(".csv").name)
@@ -135,7 +147,9 @@ def cli_make_flashcard_csv(
                 inputfile, pipeline, maxfieldlen, deepl.Translator(deeplkey), lang
             )
         else:
-            cards = generate_cards_front_only(inputfile, pipeline, maxfieldlen)
+            cards = generate_cards_front_only(
+                inputfile, pipeline, maxfieldlen, fontsize
+            )
 
         for card in cards:
             writer.writerow(
