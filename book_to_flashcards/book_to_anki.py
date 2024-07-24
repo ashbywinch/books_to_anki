@@ -1,6 +1,7 @@
 """Turn text files containing human language into an Anki flashcard deck
 allowing the user to read the book in small chunks 
 and test their understanding of the translation"""
+
 import glob
 import hashlib
 import html
@@ -68,15 +69,17 @@ def make_deckname(filename, structure: bool):
 
     return Path(filename).stem
 
+
 def books_to_anki(
-    filenames:list[str],
-    pipeline:str,
-    lang:str,
-    maxfieldlen:int,
+    filenames: list[str],
+    pipeline: str,
+    lang: str,
+    maxfieldlen: int,
     translator,
-    structure:bool,
-    ankifile:str):
-    """Take a list of text files, 
+    structure: bool,
+    ankifile: str,
+):
+    """Take a list of text files,
     and turn them all into a single Anki deck.
     Supports use of dummy translator for testing"""
     model = make_model()
@@ -94,11 +97,10 @@ def books_to_anki(
 
         with open(filename.strip(), "r", encoding="utf-8") as file:
             if translator:
-                cards = generate_cards(
-                    file, pipeline, maxfieldlen, translator, lang)
+                cards = generate_cards(file, pipeline, maxfieldlen, translator, lang)
             else:
                 cards = generate_cards_front_only(file, pipeline, maxfieldlen)
-            
+
             for card in cards:
                 note = BookNote(
                     model=model,
@@ -108,7 +110,9 @@ def books_to_anki(
                         html.escape(card.prev),
                         html.escape(card.current),
                         html.escape(card.next),
-                        html.escape(str(card.translation)), # deepl translations are not strings
+                        html.escape(
+                            str(card.translation)
+                        ),  # deepl translations are not strings
                     ],
                 )
                 deck.add_note(note)
@@ -172,7 +176,7 @@ def cli_books_to_anki(
     deeplkey,
     ankifile,
 ):
-    """Take a folder containing multiple books in text files, 
+    """Take a folder containing multiple books in text files,
     and turn them all into a single Anki deck"""
     if filelist:
         text_files = filelist.readlines()
@@ -180,5 +184,6 @@ def cli_books_to_anki(
         text_files = glob.glob(inputfolder + "/**/*.txt", recursive=True)
 
     translator = deepl.Translator(deeplkey) if translate else None
-    books_to_anki(text_files, pipeline, lang, maxfieldlen, translator, structure, ankifile)
-    
+    books_to_anki(
+        text_files, pipeline, lang, maxfieldlen, translator, structure, ankifile
+    )
