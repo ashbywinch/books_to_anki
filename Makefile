@@ -17,10 +17,13 @@ PYTHON = $(BIN)/python
 PIP = $(BIN)/pip
 PIP-COMPILE = $(BIN)/pip-compile
 
-requirements.txt: pyproject.toml
+$(PIP_COMPILE):
+	$(PIP) install pip-tools
+
+requirements.txt: pyproject.toml $(PIP_COMPILE)
 	$(PIP-COMPILE) pyproject.toml
 
-setup: requirements.txt $(VENV_TARGET)
+setup: requirements.txt $(VENV_TARGET) 
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt
 	$(PIP) install ruff
@@ -51,5 +54,3 @@ $(VENV_TARGET): requirements.txt
 .PHONY: dist
 dist:
 	$(PYTHON) -m build
-
-all: $(VENV_TARGET) requirements.txt
