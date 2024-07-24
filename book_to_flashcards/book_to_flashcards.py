@@ -24,9 +24,7 @@ class Card:
     translation: str
 
 
-def generate_cards_front_only(
-    inputfile, pipeline, maxfieldlen, fontsize
-) -> Generator[Card]:
+def generate_cards_front_only(inputfile, pipeline, maxfieldlen) -> Generator[Card]:
     """Take a single text file and produce a set of flash cards
     containing chunks not longer than maxfieldlen, with no translations included
     (so, just the front)
@@ -71,16 +69,13 @@ def generate_cards_front_only(
 
 
 def generate_cards(
-    inputfile, pipeline, maxfieldlen, translator, lang, fontsize
+    inputfile, pipeline, maxfieldlen, translator, lang
 ) -> Generator[Card]:
     """Take a single text file and produce a set of flash cards
     containing chunks not longer than maxfieldlen"""
 
     card_fronts = [
-        card
-        for card in generate_cards_front_only(
-            inputfile, pipeline, maxfieldlen, fontsize
-        )
+        card for card in generate_cards_front_only(inputfile, pipeline, maxfieldlen)
     ]
     # batch up all the translations, we don't want a round trip per card
     translations = translator.translate_text(
@@ -125,7 +120,8 @@ def generate_cards(
 @click.option(
     "--fontsize",
     type=click.IntRange(),
-    default=40,
+    default=30,
+    show_default=True,
     help="Font sized used for card text within Anki",
 )
 def cli_make_flashcard_csv(

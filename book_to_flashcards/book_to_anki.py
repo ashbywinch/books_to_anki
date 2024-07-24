@@ -20,14 +20,13 @@ from book_to_flashcards import generate_cards, generate_cards_front_only
 class BookNote(genanki.Note):
     """Anki will update notes on re-import based on a GUID.
     Make sure the GUID we provide is a good stable representation
-    of the card, that is invariant when the translation changes
-    but changes when we're looking at a different chunk of book.
+    of the card. It should be invariant when the translation changes,
+    but it should change when we're looking at a different chunk of book.
     e.g. if the book is reprocessed with a different chunk length."""
 
     @property
     def guid(self):
-        # A reasonably stable ID for the card - hash the filename along with the
-        # character index of the card text within the file and the card text.
+        # Hash the filename, the character index of the card text within the file, and the card text.
         # It's possible for multiple cards from a file to have the same text
         return genanki.guid_for(self.fields[0], self.fields[1], self.fields[3])
 
@@ -108,11 +107,9 @@ def books_to_anki(
 
         with open(filename.strip(), "r", encoding="utf-8") as file:
             if translator:
-                cards = generate_cards(
-                    file, pipeline, maxfieldlen, translator, lang, fontsize
-                )
+                cards = generate_cards(file, pipeline, maxfieldlen, translator, lang)
             else:
-                cards = generate_cards_front_only(file, pipeline, maxfieldlen, fontsize)
+                cards = generate_cards_front_only(file, pipeline, maxfieldlen)
 
             for card in cards:
                 note = BookNote(
@@ -182,6 +179,7 @@ def books_to_anki(
     "--fontsize",
     type=click.IntRange(),
     default=30,
+    show_default=True,
     help="Font size used for card text within Anki",
 )
 def cli_books_to_anki(
