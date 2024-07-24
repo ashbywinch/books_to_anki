@@ -36,10 +36,10 @@ clean:
 	rm -rf $(VENV)
 
 lint: 
-	ruff check .
+	$(BIN)/ruff check .
 	
 lint-github: 
-	ruff check . --output-format=github
+	$(BIN)/ruff check . --output-format=github
 
 .PHONY: test
 test:
