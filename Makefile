@@ -17,10 +17,10 @@ PYTHON = $(BIN)/python
 PIP = $(BIN)/pip
 PIP-COMPILE = $(BIN)/pip-compile
 
-$(PIP-COMPILE):
+$(PIP-COMPILE): $(VENV_TARGET)
 	$(PIP) install pip-tools
 
-requirements.txt: pyproject.toml $(PIP-COMPILE)
+requirements.txt: pyproject.toml $(PIP-COMPILE) 
 	$(PIP-COMPILE) pyproject.toml
 
 setup: requirements.txt $(VENV_TARGET) 
