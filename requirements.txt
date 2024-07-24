@@ -52,7 +52,9 @@ idna==3.7
 importlib-resources==6.4.0
     # via book_language_tools (pyproject.toml)
 jinja2==3.1.4
-    # via spacy
+    # via
+    #   book_language_tools (pyproject.toml)
+    #   spacy
 langcodes==3.4.0
     # via spacy
 language-data==1.2.0
