@@ -51,8 +51,9 @@ coverage.xml
 .pytest_cache/
 cover/
 
-# Test data
-test/data/
+# Test output, and books used for manual testing that aren't for redistribution
+test/data/books
+test/output/
 
 # Translations
 *.mo

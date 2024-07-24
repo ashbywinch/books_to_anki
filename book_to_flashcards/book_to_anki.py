@@ -1,6 +1,7 @@
 """Turn text files containing human language into an Anki flashcard deck
 allowing the user to read the book in small chunks 
 and test their understanding of the translation"""
+
 import glob
 import hashlib
 import html
@@ -8,10 +9,11 @@ from pathlib import Path
 
 import click
 import genanki
+import deepl
 from importlib_resources import files
 
 import book_to_flashcards.resources
-from book_to_flashcards import generate_cards
+from book_to_flashcards import generate_cards, generate_cards_front_only
 
 
 class BookNote(genanki.Note):
@@ -66,6 +68,56 @@ def make_deckname(filename, structure: bool):
         return "::".join(directoryelements)
 
     return Path(filename).stem
+
+
+def books_to_anki(
+    filenames: list[str],
+    pipeline: str,
+    lang: str,
+    maxfieldlen: int,
+    translator,
+    structure: bool,
+    ankifile: str,
+):
+    """Take a list of text files,
+    and turn them all into a single Anki deck.
+    Supports use of dummy translator for testing"""
+    model = make_model()
+
+    decks: list[genanki.Deck] = []
+
+    for filename in filenames:
+        deckname = make_deckname(filename, structure)
+
+        deck = genanki.Deck(
+            # a reasonably stable ID for this deck - hash the filename
+            int(hashlib.sha1(deckname.encode("utf-8")).hexdigest(), 16) % (2**32),
+            html.escape(deckname),
+        )
+
+        with open(filename.strip(), "r", encoding="utf-8") as file:
+            if translator:
+                cards = generate_cards(file, pipeline, maxfieldlen, translator, lang)
+            else:
+                cards = generate_cards_front_only(file, pipeline, maxfieldlen)
+
+            for card in cards:
+                note = BookNote(
+                    model=model,
+                    fields=[
+                        str(card.index_in_file),
+                        html.escape(Path(filename).stem),
+                        html.escape(card.prev),
+                        html.escape(card.current),
+                        html.escape(card.next),
+                        html.escape(
+                            str(card.translation)
+                        ),  # deepl translations are not strings
+                    ],
+                )
+                deck.add_note(note)
+            decks.append(deck)
+    genanki.Package(decks).write_to_file(ankifile)
 
 
 @click.command()
@@ -124,41 +176,14 @@ def cli_books_to_anki(
     deeplkey,
     ankifile,
 ):
-    """Take a folder containing multiple books in text files, 
+    """Take a folder containing multiple books in text files,
     and turn them all into a single Anki deck"""
     if filelist:
         text_files = filelist.readlines()
     else:
         text_files = glob.glob(inputfolder + "/**/*.txt", recursive=True)
 
-    model = make_model()
-
-    decks: list[genanki.Deck] = []
-
-    for filename in text_files:
-        deckname = make_deckname(filename, structure)
-
-        deck = genanki.Deck(
-            # a reasonably stable ID for this deck - hash the filename
-            int(hashlib.sha1(deckname.encode("utf-8")).hexdigest(), 16) % (2**32),
-            html.escape(deckname),
-        )
-
-        with open(filename.strip(), "r", encoding="utf-8") as file:
-            for card in generate_cards(
-                file, pipeline, lang, maxfieldlen, translate, deeplkey
-            ):
-                note = BookNote(
-                    model=model,
-                    fields=[
-                        str(card.index_in_file),
-                        html.escape(Path(filename).stem),
-                        html.escape(card.prev),
-                        html.escape(card.current),
-                        html.escape(card.next),
-                        html.escape(card.translation),
-                    ],
-                )
-                deck.add_note(note)
-            decks.append(deck)
-    genanki.Package(decks).write_to_file(ankifile)
+    translator = deepl.Translator(deeplkey) if translate else None
+    books_to_anki(
+        text_files, pipeline, lang, maxfieldlen, translator, structure, ankifile
+    )

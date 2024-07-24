@@ -1,5 +1,6 @@
 """Take a text file containing human language and turn it into a flashcard data structure
 with translations in another language"""
+
 from collections.abc import Generator
 import os
 from dataclasses import dataclass
@@ -15,6 +16,7 @@ from split_sentences import make_nlp, split_sentence
 @dataclass
 class Card:
     """Representing a single flash card (or 'Note' in Anki)"""
+
     index_in_file: int
     prev: str
     current: str
@@ -22,12 +24,13 @@ class Card:
     translation: str
 
 
-def generate_cards(inputfile, pipeline, lang, maxfieldlen, translate, deeplkey) -> Generator[Card]:
+def generate_cards_front_only(inputfile, pipeline, maxfieldlen) -> Generator[Card]:
     """Take a single text file and produce a set of flash cards
-    containing chunks not longer than maxfieldlen"""
+    containing chunks not longer than maxfieldlen, with no translations included
+    (so, just the front)
+    This is much quicker and avoids 'using up' a DeepL API key if you don't need it"""
+
     nlp = make_nlp(pipeline)
-    if translate:
-        translator = deepl.Translator(deeplkey)
 
     prev_span = current_span = None
     cumulative_chars = current_sentence_base = 0
@@ -38,20 +41,12 @@ def generate_cards(inputfile, pipeline, lang, maxfieldlen, translate, deeplkey) 
             for s in doc.sents:
                 for next_span in split_sentence(doc, s, max_span_length=maxfieldlen):
                     if current_span:
-                        if translate:
-                            translation = str(
-                                translator.translate_text(
-                                    current_span.text, target_lang=lang
-                                )
-                            )
-                        else:
-                            translation = ""
                         yield Card(
                             current_sentence_base + current_span.start_char,
                             prev_span.text if prev_span else "",
                             current_span.text,
                             next_span.text,
-                            translation,
+                            "",
                         )
                     prev_span = current_span
                     current_span = next_span
@@ -64,24 +59,38 @@ def generate_cards(inputfile, pipeline, lang, maxfieldlen, translate, deeplkey) 
         # how many chars to start of current line?
         cumulative_chars = cumulative_chars + len(line.strip())
 
-    if translate:
-        # translate and write the very last row, which has no next span
-        translation = str(
-            translator.translate_text(current_span.text, target_lang=lang)
-        )
-        yield Card(
-            cumulative_chars + current_span.start_char,
-            prev_span.text,
-            current_span.text,
-            "",
-            translation,
-        )
+    yield Card(
+        cumulative_chars + current_span.start_char,
+        prev_span.text if prev_span else None,
+        current_span.text,
+        "",
+        "",
+    )
+
+
+def generate_cards(
+    inputfile, pipeline, maxfieldlen, translator, lang
+) -> Generator[Card]:
+    """Take a single text file and produce a set of flash cards
+    containing chunks not longer than maxfieldlen"""
+
+    card_fronts = [
+        card for card in generate_cards_front_only(inputfile, pipeline, maxfieldlen)
+    ]
+    # batch up all the translations, we don't want a round trip per card
+    translations = translator.translate_text(
+        [card.current for card in card_fronts], target_lang=lang
+    )
+
+    for card, translation in zip(card_fronts, translations):
+        card.translation = translation
+        yield card
 
 
 @click.command()
 @click.argument("inputfile", type=click.File(mode="r", encoding="utf-8"))
 @click.option(
-    "--pipeline", help="Name of spacy pipeline to read file"
+    "--pipeline", required=True, help="Name of spacy pipeline to read file"
 )  # ru_core_news_sm
 @click.option(
     "--lang", help="Code for language that DeepL will translate into e.g. EN-US"
@@ -121,9 +130,20 @@ def cli_make_flashcard_csv(
     outputfile = Path(outputfolder, Path(inputfile.name).with_suffix(".csv").name)
     with open(outputfile, "wb") as csvfile:
         writer = unicodecsv.writer(csvfile, delimiter=";")
-        for card in generate_cards(
-            inputfile, pipeline, lang, maxfieldlen, translate, deeplkey
-        ):
+        if translate:
+            cards = generate_cards(
+                inputfile, pipeline, maxfieldlen, deepl.Translator(deeplkey), lang
+            )
+        else:
+            cards = generate_cards_front_only(inputfile, pipeline, maxfieldlen)
+
+        for card in cards:
             writer.writerow(
-                [ card.index_in_file, card.prev, card.current, card.next, card.translation ]
+                [
+                    card.index_in_file,
+                    card.prev,
+                    card.current,
+                    card.next,
+                    card.translation,
+                ]
             )
