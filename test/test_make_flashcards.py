@@ -61,6 +61,7 @@ class TestMakingCardsFromFile(unittest.TestCase):
             translator=translator,
             structure=True,
             ankifile="test/output/test.apkg",
+            fontsize=20,
         )
 
     def test_generate_anki_package_notranslate(self):
@@ -75,6 +76,7 @@ class TestMakingCardsFromFile(unittest.TestCase):
             translator=None,
             structure=True,
             ankifile="test/output/test.apkg",
+            fontsize=20,
         )
 
 

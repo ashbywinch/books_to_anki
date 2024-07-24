@@ -117,6 +117,13 @@ def generate_cards(
     envvar="DEEPL_KEY",
     help="API key for DeepL (required for translations)",
 )
+@click.option(
+    "--fontsize",
+    type=click.IntRange(),
+    default=30,
+    show_default=True,
+    help="Font sized used for card text within Anki",
+)
 def cli_make_flashcard_csv(
     inputfile,
     pipeline: str,
@@ -125,6 +132,7 @@ def cli_make_flashcard_csv(
     maxfieldlen: int,
     translate: False,
     deeplkey: str,
+    fontsize: int,
 ):
     """Take a single text file and generate a csv file of flashcards, one card per line"""
     outputfile = Path(outputfolder, Path(inputfile.name).with_suffix(".csv").name)
@@ -135,7 +143,9 @@ def cli_make_flashcard_csv(
                 inputfile, pipeline, maxfieldlen, deepl.Translator(deeplkey), lang
             )
         else:
-            cards = generate_cards_front_only(inputfile, pipeline, maxfieldlen)
+            cards = generate_cards_front_only(
+                inputfile, pipeline, maxfieldlen, fontsize
+            )
 
         for card in cards:
             writer.writerow(

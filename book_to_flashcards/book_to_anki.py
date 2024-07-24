@@ -10,6 +10,7 @@ from pathlib import Path
 import click
 import genanki
 import deepl
+import jinja2
 from importlib_resources import files
 
 import book_to_flashcards.resources
@@ -19,20 +20,28 @@ from book_to_flashcards import generate_cards, generate_cards_front_only
 class BookNote(genanki.Note):
     """Anki will update notes on re-import based on a GUID.
     Make sure the GUID we provide is a good stable representation
-    of the card, that is invariant when the translation changes
-    but changes when we're looking at a different chunk of book.
+    of the card. It should be invariant when the translation changes,
+    but it should change when we're looking at a different chunk of book.
     e.g. if the book is reprocessed with a different chunk length."""
 
     @property
     def guid(self):
-        # A reasonably stable ID for the card - hash the filename along with the
-        # character index of the card text within the file and the card text.
+        # Hash the filename, the character index of the card text within the file, and the card text.
         # It's possible for multiple cards from a file to have the same text
         return genanki.guid_for(self.fields[0], self.fields[1], self.fields[3])
 
 
-def make_model() -> genanki.Model:
+def make_model(font_size: int) -> genanki.Model:
     """Create the Anki model that we use to represent these book cards"""
+
+    # insert font size into CSS template to create actual CSS
+    environment = jinja2.Environment()
+    css_template_text = (
+        files(book_to_flashcards.resources).joinpath("styling.css.jinja").read_text()
+    )
+    css_template = environment.from_string(css_template_text)
+    css = css_template.render(font_size=font_size)
+
     return genanki.Model(
         1356306641,
         "Book Snippet",
@@ -55,7 +64,7 @@ def make_model() -> genanki.Model:
                 .read_text(),
             },
         ],
-        css=files(book_to_flashcards.resources).joinpath("styling.css").read_text(),
+        css=css,
     )
 
 
@@ -78,11 +87,12 @@ def books_to_anki(
     translator,
     structure: bool,
     ankifile: str,
+    fontsize: int,
 ):
     """Take a list of text files,
     and turn them all into a single Anki deck.
     Supports use of dummy translator for testing"""
-    model = make_model()
+    model = make_model(fontsize)
 
     decks: list[genanki.Deck] = []
 
@@ -165,6 +175,13 @@ def books_to_anki(
     required=True,
     help="Name of an anki .apkg file to put the results",
 )
+@click.option(
+    "--fontsize",
+    type=click.IntRange(),
+    default=30,
+    show_default=True,
+    help="Font size used for card text within Anki",
+)
 def cli_books_to_anki(
     inputfolder,
     structure,
@@ -175,6 +192,7 @@ def cli_books_to_anki(
     translate,
     deeplkey,
     ankifile,
+    fontsize,
 ):
     """Take a folder containing multiple books in text files,
     and turn them all into a single Anki deck"""
@@ -185,5 +203,12 @@ def cli_books_to_anki(
 
     translator = deepl.Translator(deeplkey) if translate else None
     books_to_anki(
-        text_files, pipeline, lang, maxfieldlen, translator, structure, ankifile
+        text_files,
+        pipeline,
+        lang,
+        maxfieldlen,
+        translator,
+        structure,
+        ankifile,
+        fontsize,
     )
