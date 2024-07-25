@@ -27,6 +27,9 @@ dependencies = [
 ]
 dynamic = ["version"]
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [project.scripts]
 book-to-flashcards = "book_to_flashcards.book_to_flashcards:cli_make_flashcard_csv"
 books-to-anki = "book_to_flashcards.book_to_anki:cli_books_to_anki"

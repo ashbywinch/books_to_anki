@@ -28,8 +28,9 @@ setup: requirements.txt $(VENV_TARGET)
 	$(PIP) install -r requirements.txt
 	$(PIP) install ruff
 	$(PIP) install build
-	$(BIN)/spacy download en_core_web_sm
-	$(BIN)/spacy download ru_core_news_sm
+	$(PYTHON) -m spacy download en_core_web_sm
+	$(PYTHON) -m spacy download ru_core_news_sm
+	$(PIP) install . 
 
 setup-edit: setup
 	$(PIP) install -e .
@@ -48,7 +49,7 @@ lint-github:
 test:
 	$(PYTHON) -m unittest discover -s test
 
-$(VENV_TARGET): requirements.txt
+$(VENV_TARGET):
 	python3 -m venv $(VENV)
 
 .PHONY: dist
