@@ -30,9 +30,11 @@ setup: requirements.txt $(VENV_TARGET)
 	$(PIP) install build
 	$(PYTHON) -m spacy download en_core_web_sm
 	$(PYTHON) -m spacy download ru_core_news_sm
-	$(PIP) install . 
 
-setup-edit: setup
+install:
+	$(PIP) install .
+
+install-edit: 
 	$(PIP) install -e .
 
 clean:

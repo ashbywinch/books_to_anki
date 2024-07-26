@@ -1,11 +1,20 @@
 """Calculate various complexity metrics for texts in human language"""
 
-from dataclasses import dataclass
 import glob
+
+from book_complexity.ComplexityCalculators import (
+    ComplexityRatio,
+    CumulativeGrammarDepthComplexityCalculator,
+    CumulativeWordLengthComplexityCalculator,
+    SentenceCountComplexityCalculator,
+    VocabularyLevelComplexityCalculator,
+    WordCountComplexityCalculator,
+    WordsKnownComplexityCalculator,
+)
 import spacy
+from spacy.tokens import Doc
 import click
 import alive_progress
-from spacy.tokens import Token
 
 import unicodecsv
 
@@ -17,79 +26,89 @@ def make_nlp(pipeline: str):
     return spacy.load(pipeline, exclude=["lemmatizer", "ner", "attribute_ruler"])
 
 
-@dataclass
-class Complexity:
-    """Various measures of document complexity, plus an overall complexity score"""
+class ComplexityCalculators:
 
-    word_count: int
-    mean_grammar_depth: int
-    mean_word_length: int
-    mean_words_per_sentence: int
-    words_known: int
-    percent_words_known: int
-    overall_score: int
+    def __init__(
+        self,
+        vocabulary: set[str] = None,
+        frequency: dict[str, int] = None,
+        levels: list[range] = None,
+    ):
+        self.sentence_counter = SentenceCountComplexityCalculator()
+        self.word_counter = WordCountComplexityCalculator()
+        self.cumulative_word_length_counter = CumulativeWordLengthComplexityCalculator()
+        self.cumulative_grammar_depth_counter = (
+            CumulativeGrammarDepthComplexityCalculator()
+        )
+        self.calculators = [
+            self.sentence_counter,
+            self.word_counter,
+            self.cumulative_word_length_counter,
+            self.cumulative_grammar_depth_counter,
+        ]
+        if vocabulary:
+            self.words_known_calculator = WordsKnownComplexityCalculator(vocabulary)
+            self.calculators.append(self.words_known_calculator)
+
+        if frequency and levels:
+            self.calculators.append(
+                VocabularyLevelComplexityCalculator(frequency, levels)
+            ),
+
+        self.ratios = [
+            ComplexityRatio(
+                "Mean Words Per Sentence",
+                self.word_counter,
+                self.sentence_counter,
+            ),
+            ComplexityRatio(
+                "Mean word length",
+                self.cumulative_word_length_counter,
+                self.word_counter,
+            ),
+            ComplexityRatio(
+                "Mean grammar depth",
+                self.cumulative_grammar_depth_counter,
+                self.sentence_counter,
+            ),
+        ]
+        if vocabulary:
+            self.ratios.append(
+                ComplexityRatio(
+                    "Percent Words Known",
+                    self.words_known_calculator,
+                    self.word_counter,
+                    percentage=True,
+                )
+            )
+
+    def read(self, doc: Doc):
+        for c in self.calculators:
+            c.read(doc)
+
+    def values(self):
+        return {c.name: c.value() for c in self.calculators} | {
+            c.name: c.value() for c in self.ratios
+        }
 
 
-def grammar_depth(root_token: Token):
-    """The depth of the grammatical tree, starting with root_token as the root of the tree"""
-
-    # if there are no children, return 1, else return the maximum of the childrens' depths
-    return 1 + max((grammar_depth(child) for child in root_token.children), default=0)
-
-
-def book_complexity(inputfile, nlp, vocabulary: set[str] = None) -> Complexity:
+def book_complexity(
+    inputfile,
+    nlp,
+    vocabulary: set[str] = None,
+    frequency: dict[str, int] = None,
+    levels: list[range] = None,
+) -> dict[str, int]:
     """Calculate and return the complexity of a single file
     (or other iterable that produces strings)"""
-    sents_count = 0
-    word_count = 0
-    cumulative_word_length = 0
-    cumulative_grammar_depth = 0
-    words_you_know = 0
+    calculators = ComplexityCalculators(vocabulary, frequency, levels)
 
     for line in inputfile:
         docs = nlp.pipe([line.strip()])
         for doc in docs:
-            sents_count = sents_count + sum(1 for dummy in doc.sents)
-            word_count = word_count + sum(
-                1 for token in doc if not token.is_punct and not token.is_space
-            )
-            cumulative_word_length = cumulative_word_length + sum(
-                len(token.text)
-                for token in doc
-                if not token.is_punct and not token.is_space
-            )
-            for sent in doc.sents:
-                roots = [token for token in sent if token.dep_ == "ROOT"]
-                assert len(roots) == 1
-                cumulative_grammar_depth = cumulative_grammar_depth + grammar_depth(
-                    roots[0]
-                )
-            if vocabulary:
-                words_you_know = words_you_know + sum(
-                    1 for token in doc if ((token.text in vocabulary) or token.is_digit)
-                )
+            calculators.read(doc)
 
-    complexity = Complexity(
-        word_count=word_count,
-        mean_words_per_sentence=int(word_count / sents_count) if sents_count > 0 else 0,
-        mean_word_length=(
-            int(cumulative_word_length / word_count) if word_count > 0 else 0
-        ),
-        mean_grammar_depth=(
-            round(cumulative_grammar_depth / sents_count, 1) if sents_count > 0 else 0
-        ),
-        words_known=words_you_know,
-        percent_words_known=int(
-            ((words_you_know / word_count) if word_count > 0 else 0) * 100
-        ),
-        overall_score=0,
-    )
-    complexity.overall_score = (
-        complexity.mean_words_per_sentence
-        * complexity.mean_word_length
-        * complexity.mean_grammar_depth
-    )
-    return complexity
+    return calculators.values()
 
 
 @click.command()
@@ -102,27 +121,23 @@ def book_complexity(inputfile, nlp, vocabulary: set[str] = None) -> Complexity:
     type=click.File(mode="rb", encoding="utf-8"),
     help="Known Morphs csv from Ankimorphs",
 )
-def cli_book_complexity(inputfile, pipeline, knownmorphs):
+@click.option(
+    "--frequencycsv",
+    type=click.File(mode="rb", encoding="utf-8"),
+    help="Word frequency list for the language the file is in",
+)
+def cli_book_complexity(inputfile, pipeline, knownmorphs, frequencycsv):
     """Calculate complexity of a single text file and send it to the console"""
     nlp = make_nlp(pipeline)
 
-    known_morph_list = morphs_from_csv(knownmorphs)
+    known_morph_list = morphs_from_csv(knownmorphs) if knownmorphs else None
+    frequency_list = frequencies_from_csv(frequencycsv) if frequencycsv else None
 
-    complexity = book_complexity(inputfile, nlp, known_morph_list)
-
-    print(
-        tabulate(
-            [
-                ["Words", complexity.word_count],
-                ["Mean word length", complexity.mean_word_length],
-                ["Mean words per sentence", complexity.mean_words_per_sentence],
-                ["Mean grammar depth", complexity.mean_grammar_depth],
-                ["Words known", complexity.words_known],
-                ["Percent words known", complexity.percent_words_known],
-                ["Complexity score", complexity.overall_score],
-            ]
-        )
+    complexity = book_complexity(
+        inputfile, nlp, known_morph_list, frequency_list, levels
     )
+
+    print(tabulate([[k, v] for k, v in complexity.items()]))
 
 
 def morphs_from_csv(knownmorphs):
@@ -133,12 +148,37 @@ def morphs_from_csv(knownmorphs):
     return known_morph_list
 
 
+def frequencies_from_csv(frequencies):
+    frequency_reader = unicodecsv.reader(frequencies)
+    frequencies: dict[int, str] = {}
+    for index, words in enumerate(frequency_reader):
+        (lemma, inflection) = words
+        if index > 1:  # there's a header row
+            frequencies[inflection] = index
+    return frequencies
+
+
+levels = [
+    range(0, 600),
+    range(600, 1200),
+    range(1200, 2500),
+    range(2500, 5000),
+    range(5000, 10000),
+    range(20000, 99999999),
+]
+
+
 @click.command()
 @click.argument("inputfolder", type=click.Path(exists=True, file_okay=False))
 @click.option(
     "--knownmorphs",
     type=click.File(mode="rb", encoding="utf-8"),
     help="Known Morphs csv from Ankimorphs",
+)
+@click.option(
+    "--frequencycsv",
+    type=click.File(mode="rb", encoding="utf-8"),
+    help="Frequency file for the language used",
 )
 @click.option(
     "--pipeline", help="Name of spacy pipeline to read files"
@@ -148,44 +188,27 @@ def morphs_from_csv(knownmorphs):
     type=click.File(mode="wb"),
     help="Name of a csv file to put the results",
 )
-def cli_books_complexity(inputfolder, pipeline, knownmorphs, outputcsv):
+def cli_books_complexity(inputfolder, pipeline, knownmorphs, frequencycsv, outputcsv):
     """Calculate the complexity of all text files in a folder, and
     output a CSV with one line per text file"""
     nlp = make_nlp(pipeline)
-    known_morph_list = morphs_from_csv(knownmorphs)
+    known_morph_list = morphs_from_csv(knownmorphs) if knownmorphs else None
+    frequencies = frequencies_from_csv(frequencycsv) if frequencycsv else None
+
     files = glob.glob(inputfolder + "/**/*.txt", recursive=True)
     if outputcsv:
         with alive_progress.alive_bar(
             len(files), bar="bubbles", spinner="classic"
         ) as bar:
             writer = unicodecsv.writer(outputcsv)
-            writer.writerow(
-                [
-                    "File name",
-                    "Word count",
-                    "Mean word length",
-                    "Mean words per sentence",
-                    "Mean grammar depth",
-                    "Words known",
-                    "Percent words known",
-                    "Overall Score",
-                ]
-            )
 
+            headers = book_complexity("", nlp, known_morph_list, frequencies, levels)
+            writer.writerow(["Filename"] + list(headers.keys()))
             for filename in files:
                 with open(filename, "r", encoding="utf-8") as file:
-                    result = book_complexity(file, nlp, known_morph_list)
-                    writer.writerow(
-                        [
-                            file.name,
-                            result.word_count,
-                            result.mean_word_length,
-                            result.mean_words_per_sentence,
-                            result.mean_grammar_depth,
-                            result.words_known,
-                            result.percent_words_known,
-                            result.overall_score,
-                        ]
+                    complexity = book_complexity(
+                        file, nlp, known_morph_list, frequencies, levels
                     )
+                    writer.writerow([file.name] + list(complexity.values()))
                 bar.text(filename)
                 bar()
