@@ -1,28 +1,39 @@
 """Tests for book_complexity module"""
 
-from collections.abc import Generator
 import unittest
 
-from book_complexity import make_nlp
+from book_complexity import book_complexity, make_nlp
 from book_complexity.ComplexityCalculators import (
-    CumulativeGrammarDepthComplexityCalculator,
-    CumulativeWordLengthComplexityCalculator,
-    SentenceCountComplexityCalculator,
-    VocabularyLevelComplexityCalculator,
-    WordCountComplexityCalculator,
-    WordsKnownComplexityCalculator,
+    cumulative_grammar_depth,
+    sentence_count,
+    word_count,
 )
-from spacy.tokens import Doc
 
 
-class TestBookComplexity(unittest.TestCase):
+nlp = make_nlp("ru_core_news_sm")
+
+
+class TestBookComplexityOnShortString(unittest.TestCase):
     """Tests for book_complexity module"""
-
-    nlp = make_nlp("ru_core_news_sm")
 
     # let's not explode when we see non-Latin-1 text
     short_string = "Дедушка поцеловал Лидиньку"
+    doc = next(nlp.pipe([short_string]))
 
+    def test_grammar_depth_simple(self):
+        """Are grammar depth correct on a known short string?"""
+        self.assertEqual(cumulative_grammar_depth(self.doc), 2)
+
+    def test_word_count_simple(self):
+        """Are word count calcs correct on a known short string?"""
+        self.assertEqual(word_count(self.doc), 3)
+
+    def test_sentence_count_simple(self):
+        """Are sentence count calcs correct on a known short string?"""
+        self.assertEqual(sentence_count(self.doc), 1)
+
+
+class TestBookComplexityOnMultipleLongerStrings(unittest.TestCase):
     long_strings = [
         """Дедушка поцеловал Лидиньку, а она опрометью побежала к Даше, отдала ей рубль 
             и попросила разменять другой, чтобы снести два гривенника бедному хромому.""",
@@ -31,84 +42,39 @@ class TestBookComplexity(unittest.TestCase):
             когда маменька им показывает книжку""",
     ]
 
-    def short_doc(self) -> Doc:
-        return next(self.nlp.pipe([self.short_string]))
-
-    def longer_docs(self) -> Generator[Doc]:
-        return self.nlp.pipe(self.long_strings)
-
-    def test_grammar_depth_simple(self):
-        """Are complexity calcs correct on a known short string?"""
-        calculator = CumulativeGrammarDepthComplexityCalculator()
-        calculator.read(self.short_doc())
-        self.assertEqual(calculator.value(), 2)
-
-    def test_word_count_simple(self):
-        """Are word count calcs correct on a known short string?"""
-        calculator = WordCountComplexityCalculator()
-        calculator.read(self.short_doc())
-        self.assertEqual(calculator.value(), 3)
-
-    def test_sentence_count_simple(self):
-        """Are sentence count calcs correct on a known short string?"""
-        calculator = SentenceCountComplexityCalculator()
-        calculator.read(self.short_doc())
-        self.assertEqual(calculator.value(), 1)
-
-        # self.assertEqual(complexity.mean_words_per_sentence, 3)
-        # self.assertEqual(complexity.mean_word_length, 8)
+    def setUp(self):
+        self.complexity = book_complexity(self.long_strings, nlp)
 
     def test_word_count_long(self):
-        """Are word count calcs correct for multiple longer strings?"""
-
-        calculator = WordCountComplexityCalculator()
-        for doc in self.longer_docs():
-            calculator.read(doc)
-        self.assertEqual(calculator.value(), 52)
+        self.assertEqual(self.complexity["Word Count"], 52)
 
     def test_sentence_count_long(self):
-        """Are word count calcs correct for multiple longer strings?"""
+        self.assertEqual(self.complexity["Sentence Count"], 2)
 
-        calculator = SentenceCountComplexityCalculator()
-        for doc in self.longer_docs():
-            calculator.read(doc)
-        self.assertEqual(calculator.value(), 2)
+    def test_mean_grammar_depth_long(self):
+        self.assertEqual(self.complexity["Mean Grammar Depth"], 6.5)
 
-    def test_cumulative_grammar_depth_long(self):
-        """Are grammar depth calcs correct for multiple longer strings?"""
-
-        calculator = CumulativeGrammarDepthComplexityCalculator()
-        for doc in self.longer_docs():
-            calculator.read(doc)
-        self.assertEqual(calculator.value(), 13)
-
-    def test_cumulative_word_length_long(self):
-        """Are word length calcs correct for multiple longer strings?"""
-        calculator = CumulativeWordLengthComplexityCalculator()
-        for doc in self.longer_docs():
-            calculator.read(doc)
-        self.assertEqual(calculator.value(), 277)
-        # not the same as total string length, since the calculation ignores punctuation
+    def test_mean_word_length_long(self):
+        self.assertEqual(self.complexity["Mean Word Length"], 5.3)
 
     def test_known_words(self):
         teststrings = ["Bob likes green peas"]
         vocabulary = {"likes", "peas"}
-        doc = next(self.nlp.pipe(teststrings))
-        calculator = WordsKnownComplexityCalculator(vocabulary)
-        calculator.read(doc)
+        complexity = book_complexity(teststrings, nlp, vocabulary=vocabulary)
 
-        self.assertEqual(calculator.value(), 2)
+        self.assertEqual(complexity["Words Known"], 2)
+        self.assertEqual(complexity["Percent Words Known"], 50)
 
     def test_vocabulary_level(self):
         frequency = {"peas": 500, "likes": 20}
         levels = [range(0, 400), range(400, 1000)]
         teststrings = ["Bob likes green peas"]
 
-        doc = next(self.nlp.pipe(teststrings))
-        calculator = VocabularyLevelComplexityCalculator(frequency, levels)
-        calculator.read(doc)
+        complexity = book_complexity(
+            teststrings, nlp, frequency=frequency, levels=levels
+        )
 
-        self.assertEqual(calculator.value(), 1)
+        self.assertEqual(complexity["Vocabulary Level"], 1)
 
 
 if __name__ == "__main__":

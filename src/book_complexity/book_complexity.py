@@ -1,15 +1,18 @@
 """Calculate various complexity metrics for texts in human language"""
 
+from dataclasses import dataclass
+from functools import reduce
 import glob
+from typing import OrderedDict
 
 from book_complexity.ComplexityCalculators import (
-    ComplexityRatio,
-    CumulativeGrammarDepthComplexityCalculator,
-    CumulativeWordLengthComplexityCalculator,
-    SentenceCountComplexityCalculator,
-    VocabularyLevelComplexityCalculator,
-    WordCountComplexityCalculator,
-    WordsKnownComplexityCalculator,
+    ComplexityCalculator,
+    cumulative_grammar_depth,
+    cumulative_word_length,
+    sentence_count,
+    vocabulary_level,
+    word_count,
+    words_known,
 )
 import spacy
 from spacy.tokens import Doc
@@ -26,6 +29,13 @@ def make_nlp(pipeline: str):
     return spacy.load(pipeline, exclude=["lemmatizer", "ner", "attribute_ruler"])
 
 
+@dataclass
+class ComplexityRatio:
+    numerator: str
+    denominator: str
+    percentage: bool = False
+
+
 class ComplexityCalculators:
 
     def __init__(
@@ -34,62 +44,105 @@ class ComplexityCalculators:
         frequency: dict[str, int] = None,
         levels: list[range] = None,
     ):
-        self.sentence_counter = SentenceCountComplexityCalculator()
-        self.word_counter = WordCountComplexityCalculator()
-        self.cumulative_word_length_counter = CumulativeWordLengthComplexityCalculator()
-        self.cumulative_grammar_depth_counter = (
-            CumulativeGrammarDepthComplexityCalculator()
+        self.calculators = OrderedDict(
+            [
+                ("Sentence Count", ComplexityCalculator(sentence_count)),
+                ("Word Count", ComplexityCalculator(word_count)),
+                (
+                    "Cumulative Word Length",
+                    ComplexityCalculator(cumulative_word_length),
+                ),
+                (
+                    "Cumulative Grammar Depth",
+                    ComplexityCalculator(cumulative_grammar_depth),
+                ),
+            ]
         )
-        self.calculators = [
-            self.sentence_counter,
-            self.word_counter,
-            self.cumulative_word_length_counter,
-            self.cumulative_grammar_depth_counter,
-        ]
         if vocabulary:
-            self.words_known_calculator = WordsKnownComplexityCalculator(vocabulary)
-            self.calculators.append(self.words_known_calculator)
-
-        if frequency and levels:
-            self.calculators.append(
-                VocabularyLevelComplexityCalculator(frequency, levels)
-            ),
-
-        self.ratios = [
-            ComplexityRatio(
-                "Mean Words Per Sentence",
-                self.word_counter,
-                self.sentence_counter,
-            ),
-            ComplexityRatio(
-                "Mean word length",
-                self.cumulative_word_length_counter,
-                self.word_counter,
-            ),
-            ComplexityRatio(
-                "Mean grammar depth",
-                self.cumulative_grammar_depth_counter,
-                self.sentence_counter,
-            ),
-        ]
-        if vocabulary:
-            self.ratios.append(
-                ComplexityRatio(
-                    "Percent Words Known",
-                    self.words_known_calculator,
-                    self.word_counter,
-                    percentage=True,
-                )
+            self.calculators["Words Known"] = ComplexityCalculator(
+                lambda doc: words_known(doc, vocabulary)
             )
 
-    def read(self, doc: Doc):
-        for c in self.calculators:
-            c.read(doc)
+        if frequency and levels:
+            self.calculators["Vocabulary Level"] = ComplexityCalculator(
+                lambda doc: vocabulary_level(doc, frequency, levels),
+                max,
+            )
 
-    def values(self):
-        return {c.name: c.value() for c in self.calculators} | {
-            c.name: c.value() for c in self.ratios
-        }
+        self.ratios = OrderedDict(
+            [
+                (
+                    "Mean Words Per Sentence",
+                    ComplexityRatio(
+                        "Word Count",
+                        "Sentence Count",
+                    ),
+                ),
+                (
+                    "Mean Word Length",
+                    ComplexityRatio(
+                        "Cumulative Word Length",
+                        "Word Count",
+                    ),
+                ),
+                (
+                    "Mean Grammar Depth",
+                    ComplexityRatio(
+                        "Cumulative Grammar Depth",
+                        "Sentence Count",
+                    ),
+                ),
+            ]
+        )
+        if vocabulary:
+            self.ratios["Percent Words Known"] = ComplexityRatio(
+                "Words Known",
+                "Word Count",
+                percentage=True,
+            )
+
+    def calculate_ratio(
+        self, ratio: ComplexityRatio, results: OrderedDict[str, int]
+    ) -> int:
+        numerator = results[ratio.numerator]
+        denominator = results[ratio.denominator]
+        result = numerator / denominator if denominator > 0 else 0
+        return int(result * 100) if ratio.percentage else round(result, 1)
+
+    def get_values(self, doc: Doc) -> OrderedDict[str, int]:
+        return OrderedDict(
+            [name, c.get_value(doc)] for name, c in self.calculators.items()
+        )
+
+    def reduce(
+        self, x: OrderedDict[str, int], y: OrderedDict[str, int]
+    ) -> OrderedDict[str, int]:
+        """Call the combine_values function from each calculator on the corresponding values in these two lists
+        resulting in a single list with an accumulated result for each calculator"""
+        return OrderedDict(
+            [
+                [name, c.combine_values(x, y)]
+                for name, c, x, y in zip(
+                    self.calculators.keys(),
+                    self.calculators.values(),
+                    x.values(),
+                    y.values(),
+                )
+            ]
+        )
+
+    def get_ratios(self, results: OrderedDict[str, int]):
+        return [
+            [name, self.calculate_ratio(ratio, results)]
+            for name, ratio in self.ratios.items()
+        ]
+
+
+def generate_docs(nlp, inputfile):
+    for line in inputfile:
+        docs = nlp.pipe([line.strip()])
+        for doc in docs:
+            yield doc
 
 
 def book_complexity(
@@ -102,13 +155,16 @@ def book_complexity(
     """Calculate and return the complexity of a single file
     (or other iterable that produces strings)"""
     calculators = ComplexityCalculators(vocabulary, frequency, levels)
-
-    for line in inputfile:
-        docs = nlp.pipe([line.strip()])
-        for doc in docs:
-            calculators.read(doc)
-
-    return calculators.values()
+    docs = generate_docs(nlp, inputfile)
+    results = reduce(
+        lambda a, b: calculators.reduce(a, b),
+        map(lambda doc: calculators.get_values(doc), docs),
+    )
+    for k, v in calculators.get_ratios(results):
+        results[k] = v
+    for k in [k for k in results.keys() if k.startswith("Cumulative")]:
+        results.pop(k)  # these were only useful to calculate the ratios!
+    return results
 
 
 @click.command()
@@ -202,13 +258,13 @@ def cli_books_complexity(inputfolder, pipeline, knownmorphs, frequencycsv, outpu
         ) as bar:
             writer = unicodecsv.writer(outputcsv)
 
-            headers = book_complexity("", nlp, known_morph_list, frequencies, levels)
-            writer.writerow(["Filename"] + list(headers.keys()))
-            for filename in files:
+            for index, filename in enumerate(files):
                 with open(filename, "r", encoding="utf-8") as file:
                     complexity = book_complexity(
                         file, nlp, known_morph_list, frequencies, levels
                     )
+                    if index == 0:
+                        writer.writerow(["Filename"] + list(complexity.keys()))
                     writer.writerow([file.name] + list(complexity.values()))
                 bar.text(filename)
                 bar()
