@@ -1,0 +1,25 @@
+body {
+    font-family: PT Sans, calibri, arial;
+    max-width: 100%
+}
+grid-container {
+    max-width: 70rem;
+    font-size: {{font_size}}px;
+    display: flex;
+    align-items: stretch;
+    flex-wrap: wrap;
+}
+.card {
+  flex: 1 100%;
+}
+@media all and (min-width: 600px) {
+  .card { flex: 0 1 50% }
+}
+
+:nth-child(4n + 1 of div.card), :nth-child(4n + 2 of div.card) {
+  background-color: paleturquoise;
+}
+
+div.text {
+  padding: 1rem;
+}
