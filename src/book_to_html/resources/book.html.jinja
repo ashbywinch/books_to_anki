@@ -1,0 +1,26 @@
+<html>
+    <head>
+        <style>
+            {{ css }}
+        </style>
+    </head>
+    <body>
+        <h1>{{ title }}</h1>
+
+        <div id="main" class="grid-container">
+        {% for card in cards %} 
+                <div class="front card">
+                    <div class="text">
+                    {{ card.current }}
+                    </div>
+                </div>
+                <div class="back card">
+                    <div class="text">
+                    {{ card.translation }}
+                    </div>
+                </div>
+            
+        {% endfor %}
+        </div>
+    </body>
+</html>
