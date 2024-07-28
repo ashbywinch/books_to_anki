@@ -1,2 +1,2 @@
 # ruff: noqa: F401
-from .book_complexity import book_complexity, make_nlp
+from .book_complexity import get_book_complexity, make_nlp, get_books_complexity

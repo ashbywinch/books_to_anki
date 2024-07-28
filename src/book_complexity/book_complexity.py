@@ -1,21 +1,22 @@
 """Calculate various complexity metrics for texts in human language"""
 
-from dataclasses import dataclass
-from functools import reduce
 import glob
-from typing import OrderedDict
+from typing import OrderedDict, TextIO, cast
+
+# from line_profiler import profile
 
 from book_complexity.ComplexityCalculators import (
     ComplexityCalculator,
-    cumulative_grammar_depth,
-    cumulative_word_length,
+    ComplexityCalculators,
+    ComplexityRatio,
+    sentence_grammar_depth,
+    word_length,
     sentence_count,
     vocabulary_level,
     word_count,
     words_known,
 )
 import spacy
-from spacy.tokens import Doc
 import click
 import alive_progress
 
@@ -29,115 +30,81 @@ def make_nlp(pipeline: str):
     return spacy.load(pipeline, exclude=["lemmatizer", "ner", "attribute_ruler"])
 
 
-@dataclass
-class ComplexityRatio:
-    numerator: str
-    denominator: str
-    percentage: bool = False
-
-
-class ComplexityCalculators:
-
-    def __init__(
-        self,
-        vocabulary: set[str] = None,
-        frequency: dict[str, int] = None,
-        levels: list[range] = None,
-    ):
-        self.calculators = OrderedDict(
-            [
-                ("Sentence Count", ComplexityCalculator(sentence_count)),
-                ("Word Count", ComplexityCalculator(word_count)),
-                (
-                    "Cumulative Word Length",
-                    ComplexityCalculator(cumulative_word_length),
-                ),
-                (
-                    "Cumulative Grammar Depth",
-                    ComplexityCalculator(cumulative_grammar_depth),
-                ),
-            ]
-        )
-        if vocabulary:
-            self.calculators["Words Known"] = ComplexityCalculator(
-                lambda doc: words_known(doc, vocabulary)
-            )
-
-        if frequency and levels:
-            self.calculators["Vocabulary Level"] = ComplexityCalculator(
-                lambda doc: vocabulary_level(doc, frequency, levels),
-                max,
-            )
-
-        self.ratios = OrderedDict(
-            [
-                (
-                    "Mean Words Per Sentence",
-                    ComplexityRatio(
-                        "Word Count",
-                        "Sentence Count",
-                    ),
-                ),
-                (
-                    "Mean Word Length",
-                    ComplexityRatio(
-                        "Cumulative Word Length",
-                        "Word Count",
-                    ),
-                ),
-                (
-                    "Mean Grammar Depth",
-                    ComplexityRatio(
-                        "Cumulative Grammar Depth",
-                        "Sentence Count",
-                    ),
-                ),
-            ]
-        )
-        if vocabulary:
-            self.ratios["Percent Words Known"] = ComplexityRatio(
-                "Words Known",
-                "Word Count",
-                percentage=True,
-            )
-
-    def calculate_ratio(
-        self, ratio: ComplexityRatio, results: OrderedDict[str, int]
-    ) -> int:
-        numerator = results[ratio.numerator]
-        denominator = results[ratio.denominator]
-        result = numerator / denominator if denominator > 0 else 0
-        return int(result * 100) if ratio.percentage else round(result, 1)
-
-    def get_values(self, doc: Doc) -> OrderedDict[str, int]:
-        return OrderedDict(
-            [name, c.get_value(doc)] for name, c in self.calculators.items()
-        )
-
-    def reduce(
-        self, x: OrderedDict[str, int], y: OrderedDict[str, int]
-    ) -> OrderedDict[str, int]:
-        """Call the combine_values function from each calculator on the corresponding values in these two lists
-        resulting in a single list with an accumulated result for each calculator"""
-        return OrderedDict(
-            [
-                [name, c.combine_values(x, y)]
-                for name, c, x, y in zip(
-                    self.calculators.keys(),
-                    self.calculators.values(),
-                    x.values(),
-                    y.values(),
-                )
-            ]
-        )
-
-    def get_ratios(self, results: OrderedDict[str, int]):
-        return [
-            [name, self.calculate_ratio(ratio, results)]
-            for name, ratio in self.ratios.items()
+def build_calculators(
+    vocabulary: set[str] | None,
+    frequency: dict[str, int] | None,
+    levels: list[range] | None,
+) -> OrderedDict[str, ComplexityCalculator]:
+    """Assemble the list of complexity calculators that we'll use in this run"""
+    calculators = OrderedDict(
+        [
+            (
+                "Sentence Count",
+                ComplexityCalculator(process_sentence=sentence_count),
+            ),
+            ("Word Count", ComplexityCalculator(process_token=word_count)),
+            (
+                "Cumulative Word Length",
+                ComplexityCalculator(process_token=word_length),
+            ),
+            (
+                "Cumulative Grammar Depth",
+                ComplexityCalculator(process_sentence=sentence_grammar_depth),
+            ),
         ]
+    )
+    if vocabulary:
+        calculators["Words Known"] = ComplexityCalculator(
+            process_token=lambda token: words_known(token, cast(set[str], vocabulary))
+        )
+
+    if frequency and levels:
+        calculators["Vocabulary Level"] = ComplexityCalculator(
+            process_token=lambda token: vocabulary_level(
+                token, cast(dict[str, int], frequency), cast(list[range], levels)
+            ),
+            combine_values=max,
+        )
+    return calculators
 
 
+def build_ratios(vocabulary: set[str] | None) -> OrderedDict[str, ComplexityRatio]:
+    """Assemble the list of ratio calculators that we'll use in this run"""
+    ratios = OrderedDict(
+        [
+            (
+                "Mean Words Per Sentence",
+                ComplexityRatio(
+                    "Word Count",
+                    "Sentence Count",
+                ),
+            ),
+            (
+                "Mean Word Length",
+                ComplexityRatio(
+                    "Cumulative Word Length",
+                    "Word Count",
+                ),
+            ),
+            (
+                "Mean Grammar Depth",
+                ComplexityRatio(
+                    "Cumulative Grammar Depth",
+                    "Sentence Count",
+                ),
+            ),
+        ]
+    )
+    if vocabulary:
+        ratios["Percent Words Known"] = ComplexityRatio(
+            "Words Known",
+            "Word Count",
+            percentage=True,
+        )
+    return ratios
+
+
+# @profile
 def generate_docs(nlp, inputfile):
     for line in inputfile:
         docs = nlp.pipe([line.strip()])
@@ -145,25 +112,23 @@ def generate_docs(nlp, inputfile):
             yield doc
 
 
-def book_complexity(
+# @profile
+def get_book_complexity(
     inputfile,
     nlp,
-    vocabulary: set[str] = None,
-    frequency: dict[str, int] = None,
-    levels: list[range] = None,
+    vocabulary: set[str] | None = None,
+    frequency: dict[str, int] | None = None,
+    levels: list[range] | None = None,
 ) -> dict[str, int]:
     """Calculate and return the complexity of a single file
     (or other iterable that produces strings)"""
-    calculators = ComplexityCalculators(vocabulary, frequency, levels)
-    docs = generate_docs(nlp, inputfile)
-    results = reduce(
-        lambda a, b: calculators.reduce(a, b),
-        map(lambda doc: calculators.get_values(doc), docs),
+    calculators = ComplexityCalculators(
+        build_calculators(vocabulary, frequency, levels), build_ratios(vocabulary)
     )
-    for k, v in calculators.get_ratios(results):
-        results[k] = v
+    docs = generate_docs(nlp, inputfile)
+    results = calculators.get_results(docs)
     for k in [k for k in results.keys() if k.startswith("Cumulative")]:
-        results.pop(k)  # these were only useful to calculate the ratios!
+        results.pop(k)  # these were just to calculate the ratios, let's lose them
     return results
 
 
@@ -189,14 +154,14 @@ def cli_book_complexity(inputfile, pipeline, knownmorphs, frequencycsv):
     known_morph_list = morphs_from_csv(knownmorphs) if knownmorphs else None
     frequency_list = frequencies_from_csv(frequencycsv) if frequencycsv else None
 
-    complexity = book_complexity(
+    complexity = get_book_complexity(
         inputfile, nlp, known_morph_list, frequency_list, levels
     )
 
     print(tabulate([[k, v] for k, v in complexity.items()]))
 
 
-def morphs_from_csv(knownmorphs):
+def morphs_from_csv(knownmorphs) -> set[str]:
     known_morph_list = set()
     morph_reader = unicodecsv.reader(knownmorphs)
     for row in morph_reader:
@@ -204,12 +169,12 @@ def morphs_from_csv(knownmorphs):
     return known_morph_list
 
 
-def frequencies_from_csv(frequencies):
-    frequency_reader = unicodecsv.reader(frequencies)
-    frequencies: dict[int, str] = {}
+def frequencies_from_csv(frequencycsv) -> dict[str, int]:
+    frequency_reader = unicodecsv.reader(frequencycsv)
+    frequencies: dict[str, int] = {}
     for index, words in enumerate(frequency_reader):
         (lemma, inflection) = words
-        if index > 1:  # there's a header row
+        if index > 1:  # skip the header row
             frequencies[inflection] = index
     return frequencies
 
@@ -224,27 +189,13 @@ levels = [
 ]
 
 
-@click.command()
-@click.argument("inputfolder", type=click.Path(exists=True, file_okay=False))
-@click.option(
-    "--knownmorphs",
-    type=click.File(mode="rb", encoding="utf-8"),
-    help="Known Morphs csv from Ankimorphs",
-)
-@click.option(
-    "--frequencycsv",
-    type=click.File(mode="rb", encoding="utf-8"),
-    help="Frequency file for the language used",
-)
-@click.option(
-    "--pipeline", help="Name of spacy pipeline to read files"
-)  # ru_core_news_sm
-@click.option(
-    "--outputcsv",
-    type=click.File(mode="wb"),
-    help="Name of a csv file to put the results",
-)
-def cli_books_complexity(inputfolder, pipeline, knownmorphs, frequencycsv, outputcsv):
+def get_books_complexity(
+    inputfolder: str,
+    pipeline: str,
+    knownmorphs: TextIO,
+    frequencycsv: TextIO,
+    outputcsv: TextIO,
+):
     """Calculate the complexity of all text files in a folder, and
     output a CSV with one line per text file"""
     nlp = make_nlp(pipeline)
@@ -260,7 +211,7 @@ def cli_books_complexity(inputfolder, pipeline, knownmorphs, frequencycsv, outpu
 
             for index, filename in enumerate(files):
                 with open(filename, "r", encoding="utf-8") as file:
-                    complexity = book_complexity(
+                    complexity = get_book_complexity(
                         file, nlp, known_morph_list, frequencies, levels
                     )
                     if index == 0:
@@ -268,3 +219,29 @@ def cli_books_complexity(inputfolder, pipeline, knownmorphs, frequencycsv, outpu
                     writer.writerow([file.name] + list(complexity.values()))
                 bar.text(filename)
                 bar()
+
+
+@click.command()
+@click.argument("inputfolder", type=click.Path(exists=True, file_okay=False))
+@click.option(
+    "--knownmorphs",
+    type=click.File(mode="rb"),
+    help="Known Morphs csv from Ankimorphs",
+)
+@click.option(
+    "--frequencycsv",
+    type=click.File(mode="rb"),
+    help="Frequency file for the language used",
+)
+@click.option(
+    "--pipeline", help="Name of spacy pipeline to read files"
+)  # ru_core_news_sm
+@click.option(
+    "--outputcsv",
+    type=click.File(mode="wb"),
+    help="Name of a csv file to put the results",
+)
+def cli_books_complexity(inputfolder, pipeline, knownmorphs, frequencycsv, outputcsv):
+    """Calculate the complexity of all text files in a folder, and
+    output a CSV with one line per text file"""
+    get_books_complexity(inputfolder, pipeline, knownmorphs, frequencycsv, outputcsv)
