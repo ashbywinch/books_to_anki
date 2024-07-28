@@ -24,9 +24,11 @@ requirements.txt: pyproject.toml $(PIP-COMPILE)
 	$(PIP-COMPILE) pyproject.toml
 
 setup: requirements.txt $(VENV_TARGET) 
-	$(PIP) install --upgrade pip
+	$(PIP) install setuptools
 	$(PIP) install -r requirements.txt
 	$(PIP) install ruff
+	$(PIP) install mypy
+	$(PIP) install line_profiler
 	$(PIP) install build
 	$(PYTHON) -m spacy download en_core_web_sm
 	$(PYTHON) -m spacy download ru_core_news_sm
@@ -38,6 +40,7 @@ install-edit:
 	$(PIP) install -e .
 
 clean:
+	rm -f requirements.txt
 	rm -rf __pycache__
 	rm -rf $(VENV)
 
@@ -51,8 +54,14 @@ lint-github:
 test:
 	$(PYTHON) -m unittest discover -s test
 
+profile:
+	$(PYTHON) -m kernprof -lz .\test\call_book_complexity.py 
+	mv call_book_complexity.py.lprof .\profiler
+	$(PYTHON) -m line_profiler -rmt ".\profiler\call_book_complexity.py.lprof"
+
 $(VENV_TARGET):
-	python3 -m venv $(VENV)
+	python -m venv $(VENV)
+	$(PYTHON) -m pip install --upgrade pip
 
 .PHONY: dist
 dist:

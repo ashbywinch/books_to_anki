@@ -53,8 +53,11 @@ coverage.xml
 .pytest_cache/
 cover/
 
+# Profiling
+profiler/
+
 # Test output, and books used for manual testing that aren't for redistribution
-test/data/books
+data/
 test/output/
 
 # Translations

@@ -2,11 +2,10 @@
 
 import unittest
 
-from book_complexity import book_complexity, make_nlp
+from book_complexity import get_book_complexity, make_nlp
 from book_complexity.ComplexityCalculators import (
-    cumulative_grammar_depth,
+    sentence_grammar_depth,
     sentence_count,
-    word_count,
 )
 
 
@@ -22,15 +21,11 @@ class TestBookComplexityOnShortString(unittest.TestCase):
 
     def test_grammar_depth_simple(self):
         """Are grammar depth correct on a known short string?"""
-        self.assertEqual(cumulative_grammar_depth(self.doc), 2)
-
-    def test_word_count_simple(self):
-        """Are word count calcs correct on a known short string?"""
-        self.assertEqual(word_count(self.doc), 3)
+        self.assertEqual(sentence_grammar_depth(next(self.doc.sents)), 2)
 
     def test_sentence_count_simple(self):
         """Are sentence count calcs correct on a known short string?"""
-        self.assertEqual(sentence_count(self.doc), 1)
+        self.assertEqual(sentence_count(next(self.doc.sents)), 1)
 
 
 class TestBookComplexityOnMultipleLongerStrings(unittest.TestCase):
@@ -43,7 +38,7 @@ class TestBookComplexityOnMultipleLongerStrings(unittest.TestCase):
     ]
 
     def setUp(self):
-        self.complexity = book_complexity(self.long_strings, nlp)
+        self.complexity = get_book_complexity(self.long_strings, nlp)
 
     def test_word_count_long(self):
         self.assertEqual(self.complexity["Word Count"], 52)
@@ -60,7 +55,7 @@ class TestBookComplexityOnMultipleLongerStrings(unittest.TestCase):
     def test_known_words(self):
         teststrings = ["Bob likes green peas"]
         vocabulary = {"likes", "peas"}
-        complexity = book_complexity(teststrings, nlp, vocabulary=vocabulary)
+        complexity = get_book_complexity(teststrings, nlp, vocabulary=vocabulary)
 
         self.assertEqual(complexity["Words Known"], 2)
         self.assertEqual(complexity["Percent Words Known"], 50)
@@ -70,7 +65,7 @@ class TestBookComplexityOnMultipleLongerStrings(unittest.TestCase):
         levels = [range(0, 400), range(400, 1000)]
         teststrings = ["Bob likes green peas"]
 
-        complexity = book_complexity(
+        complexity = get_book_complexity(
             teststrings, nlp, frequency=frequency, levels=levels
         )
 
