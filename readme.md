@@ -55,12 +55,14 @@ The metrics included are
 * Vocabulary Level
     This is calculated if you supply a word frequency list for the language of the text. Frequency files for several languages can be found at <https://mortii.github.io/anki-morphs/user_guide/setup/prioritizing.html?highlight=frequency#custom-frequency-files>
     It divides the frequency list into subsets roughly corresponding to the CEFR levels:
-    0: A1
-    1: A2
-    2: B1
-    3: B2
-    4: C1
-    5: C2
+
+    0. A1
+    1. A2
+    2. B1
+    3. B2
+    4. C1
+    5. C2
+    
     Currently it returns the maximum "level" of all the words in the text, although working from the 90% percentile would be a great improvement (watch this space!). It ignores words that are not in the frequency list.
 
 ```Powershell
