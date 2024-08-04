@@ -62,11 +62,10 @@ The metrics included are
     3. B2
     4. C1
     5. C2
-    
+
     Currently it returns the maximum "level" of all the words in the text, although working from the 90% percentile would be a great improvement (watch this space!). It ignores words that are not in the frequency list.
 
 ```Powershell
 book-complexity --help
 books-complexity --help
 ```
-

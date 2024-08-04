@@ -2,12 +2,11 @@
 allowing the user to read the book in small chunks 
 and test their understanding of the translation"""
 
-import glob
+from collections.abc import Generator
 import hashlib
 import html
 from pathlib import Path
-
-from alive_progress import alive_bar
+from typing import Any, Callable
 
 import click
 import genanki
@@ -15,8 +14,8 @@ import deepl
 import jinja2
 from importlib_resources import files
 
+from book_to_flashcards.Card import Card
 import book_to_flashcards.resources
-from book_to_flashcards import generate_cards, generate_cards_front_only
 
 
 class BookNote(genanki.Note):
@@ -86,15 +85,11 @@ def do_nothing(filename):
 
 
 def books_to_anki(
-    filenames: list[str],
-    pipeline: str,
-    lang: str,
-    maxfieldlen: int,
-    translator,
+    cards: Generator[Card, Any, Any],
     structure: bool,
     ankifile: str,
     fontsize: int,
-    update_progress_on_each_file=do_nothing,
+    on_file_complete: Callable[[], None],
 ):
     """Take a list of text files,
     and turn them all into a single Anki deck.
@@ -102,135 +97,46 @@ def books_to_anki(
     model = make_model(fontsize)
 
     decks: list[genanki.Deck] = []
-
+    deck = None
     try:
-        for filename in filenames:
-            update_progress_on_each_file(filename)
-            deckname = make_deckname(filename, structure)
+        for card in cards:
+            # if we've hit a new filename after processing some cards, we need to close the deck
+            # and make a new one
+            deckname = make_deckname(card.filename, structure)
+            if deck is None or deck.name != deckname:
+                if deck:
+                    decks.append(deck)
+                    if on_file_complete:
+                        on_file_complete()
+                deck = genanki.Deck(
+                    # a reasonably stable ID for this deck - hash the filename
+                    int(hashlib.sha1(deckname.encode("utf-8")).hexdigest(), 16)
+                    % (2**32),
+                    html.escape(deckname),
+                )
 
-            deck = genanki.Deck(
-                # a reasonably stable ID for this deck - hash the filename
-                int(hashlib.sha1(deckname.encode("utf-8")).hexdigest(), 16) % (2**32),
-                html.escape(deckname),
+            note = BookNote(
+                model=model,
+                fields=[
+                    str(card.index_in_file),
+                    html.escape(Path(card.filename).stem),
+                    html.escape(card.prev),
+                    html.escape(card.current),
+                    html.escape(card.next),
+                    html.escape(
+                        str(card.translation)
+                    ),  # deepl translations are not strings
+                ],
             )
+            deck.add_note(note)
 
-            with open(filename.strip(), "r", encoding="utf-8") as file:
-                if translator:
-                    cards = generate_cards(
-                        file, pipeline, maxfieldlen, translator, lang
-                    )
-                else:
-                    cards = generate_cards_front_only(file, pipeline, maxfieldlen)
-
-                for card in cards:
-                    note = BookNote(
-                        model=model,
-                        fields=[
-                            str(card.index_in_file),
-                            html.escape(Path(filename).stem),
-                            html.escape(card.prev),
-                            html.escape(card.current),
-                            html.escape(card.next),
-                            html.escape(
-                                str(card.translation)
-                            ),  # deepl translations are not strings
-                        ],
-                    )
-                    deck.add_note(note)
-                decks.append(deck)
     except deepl.DeepLException as e:
         # this takes a very long time, if it falls over we'd like to have some intermediate results!
         # it can fall over because your DeepL key ran out.
         genanki.Package(decks).write_to_file(ankifile)
-        print("Problem with DeepL:")
-        print(e)
+        click.echo("Problem with DeepL:")
+        click.echo(e)
         if e.http_status_code == 413:
             print("You may have reached the translation limits of your API key")
 
     genanki.Package(decks).write_to_file(ankifile)
-
-
-@click.command()
-@click.argument(
-    "inputfolder", required=False, type=click.Path(exists=True, file_okay=False)
-)
-@click.option(
-    "--structure/--nostructure",
-    default=True,
-    show_default=True,
-    help="Structure the deck to match the input folder structure",
-)
-@click.option(
-    "--filelist",
-    type=click.File(mode="r", encoding="utf-8"),
-    help="name of a file containing specific book filenames to include (one per line)",
-)
-@click.option(
-    "--pipeline", required=True, help="Name of spacy pipeline to read files"
-)  # ru_core_news_sm
-@click.option(
-    "--lang", help="Code for language that DeepL will translate into e.g. EN-US"
-)
-@click.option(
-    "--maxfieldlen",
-    type=click.IntRange(30),
-    default=70,
-    show_default=True,
-    help="The maximum desired length of a text field (translations may be longer)",
-)
-@click.option(
-    "--translate/--notranslate",
-    default=False,
-    show_default=True,
-    help="Add translations to file (otherwise dummy translations are used)",
-)
-@click.option(
-    "--deeplkey",
-    envvar="DEEPL_KEY",
-    help="API key for DeepL (required for translations)",
-)
-@click.option(
-    "--ankifile",
-    type=click.File(mode="wb"),
-    required=True,
-    help="Name of an anki .apkg file to put the results",
-)
-@click.option(
-    "--fontsize",
-    type=click.IntRange(),
-    default=30,
-    show_default=True,
-    help="Font size used for card text within Anki",
-)
-def cli_books_to_anki(
-    inputfolder,
-    structure,
-    filelist,
-    pipeline,
-    lang,
-    maxfieldlen,
-    translate,
-    deeplkey,
-    ankifile,
-    fontsize,
-):
-    """Take a folder containing multiple books in text files,
-    and turn them all into a single Anki deck"""
-    if filelist:
-        text_files = filelist.readlines()
-    else:
-        text_files = glob.glob(inputfolder + "/**/*.txt", recursive=True)
-
-    translator = deepl.Translator(deeplkey) if translate else None
-    with alive_bar(len(text_files), bar="bubbles", spinner="classic") as bar:
-        books_to_anki(
-            text_files,
-            pipeline,
-            lang,
-            maxfieldlen,
-            translator,
-            structure,
-            ankifile,
-            fontsize,
-            update_progress_on_each_file=lambda filename: (bar.text(filename), bar()),
-        )
