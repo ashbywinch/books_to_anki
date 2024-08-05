@@ -84,12 +84,12 @@ def do_nothing(filename):
     pass
 
 
-def books_to_anki(
+def cards_to_anki(
     cards: Generator[Card, Any, Any],
     structure: bool,
     ankifile: str,
     fontsize: int,
-    on_file_complete: Callable[[], None],
+    on_file_complete: Callable[[], None] = do_nothing,
 ):
     """Take a list of text files,
     and turn them all into a single Anki deck.
@@ -129,6 +129,10 @@ def books_to_anki(
                 ],
             )
             deck.add_note(note)
+        if deck:  # don't forget the last one
+            decks.append(deck)
+            if on_file_complete:
+                on_file_complete()
 
     except deepl.DeepLException as e:
         # this takes a very long time, if it falls over we'd like to have some intermediate results!
