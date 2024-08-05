@@ -7,7 +7,11 @@ as a language learner if your state of flow is constantly interrupted by having 
 
 This package contains
 
-1. books-to-anki, a tool to turn a book into a set of flashcards suitable for importing into Anki (<https://apps.ankiweb.net/>). Reading a book via flashcards can massively improve "flow" for language learners.
+1. book-to-flashcard, a tool to turn a book into learning material. Currently it supports
+flashcards suitable for importing into Anki (<https://apps.ankiweb.net/>), as well as full side-by-side translations (with the original text in the left column and translated text in the right column).
+
+Reading a book in small discrete chunks with easily accessible translations can massively improve "flow" for language learners.
+
 2. books-complexity, a tool to calculate various complexity metrics on text files. If you have a large corpus of texts, this can be used to identify suitable foreign language texts to study.
 
 ## Installation
@@ -21,9 +25,17 @@ From a command line, run
 
 Use the instructions at the top of the page here <https://spacy.io/usage/> to configure and install the pipeline for the **language your books are written in**. Make a note of the name of the pipeline (something like "fi_core_news_sm" for Finnish, or "ru_core_news_sm" for Russian).
 
+You will need a free DeepL account (<https://www.deepl.com/signup?cta=free-doctrans-signup>) which will give you an API key that allows you to translate a fixed amount of text per month. At the time of writing the monthly allowance is 500,000 characters, which is enough for quite a bit of literature.
+
 ## book-to-flashcard
 
-This is a command line tool (and also a python package) that can take text files, and generate an anki package. The package will contain one anki deck per text file, and each deck will contain the entire text of that file in order, split into flash-card-sized chunks, with the original text on the front of the card and the translated text on the back of the card.  
+This is a command line tool (and also a python package) that can take text files, and generate learning material.
+
+### Generating Anki decks
+
+Anki (<https://apps.ankiweb.net/>) is a flashcard application that uses spaced repetition to help with knowledge acquisition. Cards are bundled into "decks" containing sets of related learning material.
+
+book-to-flashcard will generate one anki deck per text file. Each deck will contain the entire text of that file, in order, split into flash-card-sized chunks, with the original text on the front of the card and the translated text on the back of the card. All the decks will be bundled into a single Anki .apkg file.
 
 book-to-flashcard uses AI language parsing (via the spacy library) to try and split long sentences in such a way that they can be individually understood and translated without context.
 
@@ -31,17 +43,33 @@ DeepL is used to translate each card to a language of the user's choice. The lis
 
 The length of the "text chunks" and the size of the font on the cards is configurable.
 
-### Examples
+#### Examples
 
 See <https://developers.deepl.com/docs/resources/supported-languages#target-languages> for the list of language codes that the translate option understands.
 
 ```Powershell
-book-to-flashcard from-text 'my-russian-book.txt' pipeline 'ru_core_news_sm' translate --deeplkey 'YOUR_KEY' --lang 'EN-GB' to-sidebyside --fontsize=20
+book-to-flashcard from-text 'my-russian-book.txt' pipeline 'ru_core_news_sm' translate --deeplkey 'YOUR_KEY' --lang 'EN-GB' to-anki --fontsize=20 'all_my_books.apkg'
 ```
 
 ```Powershell
 book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' translate --deeplkey 'YOUR_KEY' --lang 'EN-GB' to-anki 'all_my_books.apkg'
 ```
+
+### Generating side-by-side translations
+
+This allows you to generate HTML files (one for each of your source text files) with the original text in the left column and the translated text in the right column. As with the flash cards, the text is split using AI into chunks that are individually translated, so it's easy to understand how the translated text matches up to the source.
+
+The size of the chunks is configurable, as well as the font size in the HTML output. For easy books you may like to use smaller chunks and larger fonts - for complex books and for more experienced language learners, larger chunks and smaller fonts may be easier to read.
+
+```Powershell
+book-to-flashcard from-text 'my-russian-book.txt' pipeline --maxfieldlen 70 'ru_core_news_sm' translate --deeplkey 'YOUR_KEY' --lang 'EN-GB' to-sidebyside --fontsize=20 
+```
+
+```Powershell
+book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' translate --deeplkey 'YOUR_KEY' --lang 'EN-GB' to-sidebyside
+```
+
+### Advanced usage
 
 Reading and writing to an intermediate CSV format is also supported. For example, you can
 
