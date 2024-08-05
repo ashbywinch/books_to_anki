@@ -17,10 +17,12 @@ flashcards suitable for importing into Anki (<https://apps.ankiweb.net/>), as we
 ## Installation
 
 Install python from here <https://www.python.org/downloads/> if you don't already have it.
+Download this repo.
+
 From a command line, run
 
-```python
-> python3 -m pip install book_language_tools 
+```powershell
+> python -m pip install .
 ```
 
 Use the instructions at the top of the page here <https://spacy.io/usage/> to configure and install the pipeline for the **language your books are written in**. Make a note of the name of the pipeline (something like "fi_core_news_sm" for Finnish, or "ru_core_news_sm" for Russian).
