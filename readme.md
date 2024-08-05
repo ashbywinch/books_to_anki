@@ -7,12 +7,12 @@ as a language learner if your state of flow is constantly interrupted by having 
 
 This package contains
 
-1. *book-to-flashcard*, a tool to turn a book into learning material. Currently it supports
+1. **book-to-flashcard**, a tool to turn a book into learning material. Currently it supports
 flashcards suitable for importing into Anki (<https://apps.ankiweb.net/>), as well as full side-by-side translations (with the original text in the left column and translated text in the right column).
 
     Reading a book in small discrete chunks with easily accessible translations can massively improve "flow" for language learners.
 
-2. *books-complexity*, a tool to calculate various complexity metrics on text files. If you have a large corpus of texts, this can be used to identify suitable foreign language texts to study.
+2. **books-complexity**, a tool to calculate various complexity metrics on text files. If you have a large corpus of texts, this can be used to identify suitable foreign language texts to study.
 
 ## Installation
 
