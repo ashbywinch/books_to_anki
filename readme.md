@@ -14,6 +14,10 @@ flashcards suitable for importing into Anki (<https://apps.ankiweb.net/>), as we
 
 2. **books-complexity**, a tool to calculate various complexity metrics on text files. If you have a large corpus of texts, this can be used to identify suitable foreign language texts to study.
 
+## Warning
+
+These tools lean heavily on AI. AI is pretty neat but it is often also very dumb. Its translations will not be nearly as good as human translations, and sometimes they will be outright wrong. But the're usually good enough to be helpful in the learning context. Make sure you always start with foreign language material and translate it into your native language - if you try it the other way round, you won't be able to tell when the AI is making silly mistakes.
+
 ## Installation
 
 Install python from here <https://www.python.org/downloads/> if you don't already have it.
@@ -37,9 +41,9 @@ This is a command line tool (and also a python package) that can take text files
 
 Anki (<https://apps.ankiweb.net/>) is a flashcard application that uses spaced repetition to help with knowledge acquisition. Cards are bundled into "decks" containing sets of related learning material.
 
-book-to-flashcard will generate one anki deck per text file. Each deck will contain the entire text of that file, in order, split into flash-card-sized chunks, with the original text on the front of the card and the translated text on the back of the card. All the decks will be bundled into a single Anki .apkg file.
+**book-to-flashcard** will generate one anki deck per text file. Each deck will contain the entire text of that file, in order, split into flash-card-sized chunks, with the original text on the front of the card and the translated text on the back of the card. All the decks will be bundled into a single Anki .apkg file.
 
-book-to-flashcard uses AI language parsing (via the spacy library) to try and split long sentences in such a way that they can be individually understood and translated without context.
+**book-to-flashcard** uses AI language parsing (via the spacy library) to try and split long sentences in such a way that they can be individually understood and translated without context.
 
 DeepL is used to translate each card to a language of the user's choice. The list of available languages can be found here: <https://developers.deepl.com/docs/resources/supported-languages#target-languages>
 
