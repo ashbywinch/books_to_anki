@@ -8,7 +8,7 @@ from book_to_flashcards import (
     cards_untranslated_from_file,
 )
 from book_to_flashcards.cards_to_anki import cards_to_anki
-from book_to_flashcards.book_to_flashcards_cli import translate_cards
+from book_to_flashcards.cli_make_flashcards import translate_cards
 
 
 class TestMakingCardsFromFile(unittest.TestCase):
@@ -62,7 +62,6 @@ class TestMakingCardsFromFile(unittest.TestCase):
             ankifile="test/output/test.apkg",
             structure=True,
             fontsize=20,
-            on_file_complete=None,
         )
 
     def test_generate_anki_package_notranslate(self):
@@ -79,7 +78,6 @@ class TestMakingCardsFromFile(unittest.TestCase):
             ankifile="test/output/test.apkg",
             fontsize=20,
             structure=True,
-            on_file_complete=None,
         )
 
 

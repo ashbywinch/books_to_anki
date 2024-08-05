@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 import click
-import genanki
+import genanki  # type: ignore
 import deepl
 import jinja2
 from importlib_resources import files
@@ -80,7 +80,7 @@ def make_deckname(filename, structure: bool):
     return Path(filename).stem
 
 
-def do_nothing(filename):
+def do_nothing():
     pass
 
 
@@ -106,8 +106,7 @@ def cards_to_anki(
             if deck is None or deck.name != deckname:
                 if deck:
                     decks.append(deck)
-                    if on_file_complete:
-                        on_file_complete()
+                    on_file_complete()
                 deck = genanki.Deck(
                     # a reasonably stable ID for this deck - hash the filename
                     int(hashlib.sha1(deckname.encode("utf-8")).hexdigest(), 16)
@@ -131,8 +130,7 @@ def cards_to_anki(
             deck.add_note(note)
         if deck:  # don't forget the last one
             decks.append(deck)
-            if on_file_complete:
-                on_file_complete()
+            on_file_complete()
 
     except deepl.DeepLException as e:
         # this takes a very long time, if it falls over we'd like to have some intermediate results!

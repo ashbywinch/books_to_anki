@@ -31,6 +31,6 @@ dynamic = ["version"]
 where = ["src"]
 
 [project.scripts]
-book-to-flashcard = "book_to_flashcards.book_to_flashcards:cli_make_flashcards"
-book-complexity = "book_complexity.book_complexity:cli_book_complexity"
-books-complexity = "book_complexity.book_complexity:cli_books_complexity"
+book-to-flashcard = "book_to_flashcards.cli_make_flashcards:cli_make_flashcards"
+book-complexity = "book_complexity.cli_book_complexity:cli_book_complexity"
+books-complexity = "book_complexity.cli_book_complexity:cli_books_complexity"
