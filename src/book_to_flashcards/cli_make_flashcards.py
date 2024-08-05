@@ -14,7 +14,7 @@ from .cards_from_csv import cards_from_csv
 from .Card import Card
 from .cards_to_anki import cards_to_anki
 from .cards_untranslated_from_file import cards_untranslated_from_file
-from .translate_cards import translate_cards
+from .translate_cards import ReverseTextTranslator, translate_cards
 from cards_to_html import cards_to_html
 
 
@@ -132,6 +132,7 @@ def to_anki(outputfile, fontsize):
 )
 @cli_make_flashcards.command()
 def to_sidebyside(outputfolder, fontsize):
+
     def processor(iterator):
         cards_to_html.cards_to_htmls(
             iterator,
@@ -188,6 +189,16 @@ def translate(lang, deeplkey):
     def processor(iterator) -> Generator[Card]:
         translator = deepl.Translator(deeplkey)
         for card in translate_cards(iterator, translator, lang):
+            yield card
+
+    return processor
+
+
+@cli_make_flashcards.command()
+def dummy_translate():
+    def processor(iterator) -> Generator[Card]:
+        translator = ReverseTextTranslator()
+        for card in translate_cards(iterator, translator, "dummy"):
             yield card
 
     return processor

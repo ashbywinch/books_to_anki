@@ -33,10 +33,11 @@ def translate_cards(cards, translator, lang):
 
     for chunk in chunks(cards, 200):
         # get all the translations
+        lchunk = list(chunk)
         translations = translator.translate_text(
-            [card.current for card in chunk], target_lang=lang
+            [card.current for card in lchunk], target_lang=lang
         )
         # put the translations back in the cards and return
-        for card, translation in zip(cards, translations):
+        for card, translation in zip(lchunk, translations):
             card.translation = translation
             yield card

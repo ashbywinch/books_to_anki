@@ -24,6 +24,7 @@ def cards_to_html(
         outputfile.parent.mkdir(exist_ok=True, parents=True)
     else:
         outputfile = Path(outputfolder, Path(bookname).with_suffix(".html").name)
+
     with open(outputfile, "w", encoding="utf8") as file:
 
         # populate Jinja templates to create actual html/CSS
