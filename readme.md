@@ -27,11 +27,13 @@ This is a command line tool (and also a python package) that can take text files
 
 book-to-flashcard uses AI language parsing (via the spacy library) to try and split long sentences in such a way that they can be individually understood and translated without context.
 
-DeepL is used to translate each card to a language of the user's choice.
+DeepL is used to translate each card to a language of the user's choice. The list of available languages can be found here: <https://developers.deepl.com/docs/resources/supported-languages#target-languages>
 
 The length of the "text chunks" and the size of the font on the cards is configurable.
 
 ### Examples
+
+See <https://developers.deepl.com/docs/resources/supported-languages#target-languages> for the list of language codes that the translate option understands.
 
 ```Powershell
 book-to-flashcard from-text 'my-russian-book.txt' pipeline 'ru_core_news_sm' translate --deeplkey 'YOUR_KEY' --lang 'EN-GB' to-sidebyside --fontsize=20
@@ -47,16 +49,16 @@ Reading and writing to an intermediate CSV format is also supported. For example
 
 ```Powershell
 > book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' to-csv 'all_my_books.csv'
-> book-to-flashcard from-csv 'all_my_books.csv' translate --deeplkey 'YOUR_KEY' lang='EN-GB' to-anki 'all_my_books.apkg'
-> book-to-flashcard from-csv 'all_my_books.csv' translate --deeplkey 'YOUR_KEY' lang='EN-US' to-anki 'all_my_books.apkg'
+> book-to-flashcard from-csv 'all_my_books.csv' translate --deeplkey 'YOUR_KEY' lang='EN-GB' to-anki 'all_my_books_english.apkg'
+> book-to-flashcard from-csv 'all_my_books.csv' translate --deeplkey 'YOUR_KEY' lang='ES' to-anki 'all_my_books_spanish.apkg'
 ```
 
 * generate a CSV of translated cards, and then use that file to experiment with output in a variety of font sizes without re-translating the cards (which would use up your DeepL API key)
 
 ```Powershell
 > book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' translate --deeplkey 'YOUR_KEY' lang='EN-GB' to-csv 'all_my_books.csv'
-> book-to-flashcard from-csv 'all_my_books.csv' to-anki --fontsize 30 'all_my_books.apkg'
-> book-to-flashcard from-csv 'all_my_books.csv' to-anki -fontsize 14 'all_my_books.apkg'
+> book-to-flashcard from-csv 'all_my_books.csv' to-anki --fontsize 30 'all_my_books_big.apkg'
+> book-to-flashcard from-csv 'all_my_books.csv' to-anki -fontsize 14 'all_my_books_small.apkg'
 ```
 
 There is also a dummy translation option that can be used to make experiments without using up a DeepL API key. This provides "translations" that are just the original text reversed, so "Hi!" becomes "!iH".
@@ -82,24 +84,35 @@ The metrics included are
 * Words per sentence
 * Mean word length
 * Mean grammar depth
+
     This is calculated by making a grammatical tree from each sentence, and calculating the depth of that tree. So for example, a sentence using a lot of nested parentheses might have a very large depth, whereas the sentence "Jane eats apples" has a depth of 2.
+
 * Words known
+
     This can be calculated if you provide a list of all the words you already know. If you've been using Anki for language learning, the extension "AnkiMorphs" can provide you with a list of words that are considered mature by Anki.
+
 * Percent words known
+
+    Given the list of words that you know, what percentage of the words in this text are known to you.
+
 * Vocabulary Level
     This is calculated if you supply a word frequency list for the language of the text. Frequency files for several languages can be found at <https://mortii.github.io/anki-morphs/user_guide/setup/prioritizing.html?highlight=frequency#custom-frequency-files>
-    It divides the frequency list into subsets roughly corresponding to the CEFR levels:
+    We divide the frequency list into subsets roughly corresponding to the CEFR levels:
 
-    0. A1
-    1. A2
-    2. B1
-    3. B2
-    4. C1
-    5. C2
+    | Result | CEFR level |
+    |--------|------------|
+    | 0      | A1         |
+    | 1      | A2         |
+    | 2      | B1         |
+    | 3      | B2         |
+    | 4      | C1         |
+    | 5      | C2         |
 
-    Currently it returns the maximum "level" of all the words in the text, although working from the 90% percentile would be a great improvement (watch this space!). It ignores words that are not in the frequency list.
+    Currently this option returns the maximum "level" of all the words in the text, although working from the 90% percentile would be a great improvement (watch this space!). So, a text with only very simple words would be assessed as level 0, and a text with many very unusual words would be assessed as level 5. It ignores words that are not in the frequency list. 
+
+Use the help command to get more details on the options for these commands:
 
 ```Powershell
-book-complexity --help
-books-complexity --help
+> book-complexity --help
+> books-complexity --help
 ```
