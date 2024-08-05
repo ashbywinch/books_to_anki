@@ -31,8 +31,6 @@ dynamic = ["version"]
 where = ["src"]
 
 [project.scripts]
-book-to-flashcards = "book_to_flashcards.book_to_flashcards:cli_make_flashcard_csv"
-books-to-anki = "book_to_flashcards.book_to_anki:cli_books_to_anki"
-book-complexity = "book_complexity.book_complexity:cli_book_complexity"
-books-complexity = "book_complexity.book_complexity:cli_books_complexity"
-book-to-sidebyside = "book_to_html.book_to_html:cli_make_book_html"
+book-to-flashcard = "book_to_flashcards.cli_make_flashcards:cli_make_flashcards"
+book-complexity = "book_complexity.cli_book_complexity:cli_book_complexity"
+books-complexity = "book_complexity.cli_book_complexity:cli_books_complexity"
