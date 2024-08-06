@@ -1,0 +1,15 @@
+test/data/dummy_books\dummy_book.txt,0,,This is a text file,"that contains a ""book"" for testing purposes.",elif txet a si sihT
+test/data/dummy_books\dummy_book.txt,20,This is a text file,"that contains a ""book"" for testing purposes.",Some of the lines and sentences are quite long and,".sesoprup gnitset rof ""koob"" a sniatnoc taht"
+test/data/dummy_books\dummy_book.txt,65,"that contains a ""book"" for testing purposes.",Some of the lines and sentences are quite long and,"might need to be broken up to put on flashcards,",dna gnol etiuq era secnetnes dna senil eht fo emoS
+test/data/dummy_books\dummy_book.txt,116,Some of the lines and sentences are quite long and,"might need to be broken up to put on flashcards,",because they use a large number of words,",sdrachsalf no tup ot pu nekorb eb ot deen thgim"
+test/data/dummy_books\dummy_book.txt,165,"might need to be broken up to put on flashcards,",because they use a large number of words,"without putting a full stop in between any of them,",sdrow fo rebmun egral a esu yeht esuaceb
+test/data/dummy_books\dummy_book.txt,206,because they use a large number of words,"without putting a full stop in between any of them,",perhaps in,",meht fo yna neewteb ni pots lluf a gnittup tuohtiw"
+test/data/dummy_books\dummy_book.txt,258,"without putting a full stop in between any of them,",perhaps in,order to emulate wise literary authors who seem,ni spahrep
+test/data/dummy_books\dummy_book.txt,269,perhaps in,order to emulate wise literary authors who seem,"to gravitate towards excessively long sentences,",mees ohw srohtua yraretil esiw etalume ot redro
+test/data/dummy_books\dummy_book.txt,317,order to emulate wise literary authors who seem,"to gravitate towards excessively long sentences,",making,",secnetnes gnol ylevissecxe sdrawot etativarg ot"
+test/data/dummy_books\dummy_book.txt,366,"to gravitate towards excessively long sentences,",making,it quite hard for non native speakers to read,gnikam
+test/data/dummy_books\dummy_book.txt,373,making,it quite hard for non native speakers to read,"their work (or even native speakers,",daer ot srekaeps evitan non rof drah etiuq ti
+test/data/dummy_books\dummy_book.txt,419,it quite hard for non native speakers to read,"their work (or even native speakers,",for that matter).,",srekaeps evitan neve ro( krow rieht"
+test/data/dummy_books\dummy_book.txt,929,"their work (or even native speakers,",for that matter).,,.)rettam taht rof
+test/data/dummy_books\second_dummy_book.txt,0,,This is a terrible book.,Nobody should read this book.,.koob elbirret a si sihT
+test/data/dummy_books\second_dummy_book.txt,53,This is a terrible book.,Nobody should read this book.,,.koob siht daer dluohs ydoboN

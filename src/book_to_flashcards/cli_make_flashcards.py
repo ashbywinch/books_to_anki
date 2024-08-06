@@ -10,22 +10,14 @@ import alive_progress  # type: ignore
 import click
 import deepl
 
+from book_to_flashcards.Progress import Progress
+
 from .cards_from_csv import cards_from_csv
-from .Card import Card
+from .Card import Card, cards_to_csv
 from .cards_to_anki import cards_to_anki
 from .cards_untranslated_from_file import cards_untranslated_from_file
 from .translate_cards import ReverseTextTranslator, translate_cards
 from cards_to_html import cards_to_html
-
-
-class Progress:
-    """this class lets us separate progress bar initialisation from the code where we discover how many steps there are"""
-
-    bar = None
-    num_steps = 0
-
-    def __call__(self, *args: Any, **kwds: Any) -> Any:
-        self.bar()
 
 
 __progress = Progress()
@@ -61,7 +53,7 @@ def from_text(
     return processor
 
 
-@click.argument("inputfile", type=click.File(mode="rb"))
+@click.argument("inputfile", type=click.Path(dir_okay=False, exists=True))
 @cli_make_flashcards.command()
 def from_csv(
     inputfile,
@@ -117,11 +109,10 @@ def to_anki(outputfile, fontsize):
     return processor
 
 
-@click.option(
-    "--outputfolder",
+@click.argument(
+    "outputfolder",
     type=click.Path(exists=True, file_okay=False, writable=True),
     default=os.getcwd(),
-    help="Where to put the html output (defaults to cwd)",
 )
 @click.option(
     "--fontsize",
@@ -152,7 +143,7 @@ def to_sidebyside(outputfolder, fontsize):
 @cli_make_flashcards.command()
 def to_csv(outputfile):
     def processor(iterator: Generator[Card]):
-        to_csv(iterator, outputfile, __progress)
+        cards_to_csv(iterator, outputfile, __progress)
 
     return processor
 
