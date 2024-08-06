@@ -54,5 +54,5 @@ class TestClis(unittest.TestCase):
             self.fail()
 
         print(" ".join(params))
-        result = subprocess.run([".env/scripts/book-to-flashcard.exe", *params])
+        result = subprocess.run([".env/Scripts/book-to-flashcard", *params])
         self.assertEqual(result.returncode, 0)
