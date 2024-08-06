@@ -28,6 +28,7 @@ setup: requirements.txt $(VENV_TARGET)
 	$(PIP) install -r requirements.txt
 	$(PIP) install ruff
 	$(PIP) install mypy
+	$(PIP) install parameterized
 	$(PIP) install line_profiler
 	$(PIP) install build
 	$(PYTHON) -m spacy download en_core_web_sm

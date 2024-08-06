@@ -8,5 +8,16 @@
     ],
     "python.testing.pytestEnabled": false,
     "python.testing.unittestEnabled": true,
-    "activestate.promptRuntimeCreation": false
+    "activestate.promptRuntimeCreation": false,
+
+    "runItOn": {
+        "commands": [
+            {
+                "match": "\\.py$",
+                "isAsync": true,
+                "isShellCommand": false,
+                "cmd": "testing.runAll"
+            },
+        ],
+    },
 }

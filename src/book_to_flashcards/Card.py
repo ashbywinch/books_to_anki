@@ -1,7 +1,9 @@
 from collections.abc import Generator
 from dataclasses import dataclass
-from typing import Any, Callable
-from unicodecsv import UnicodeWriter  # type: ignore
+from typing import Any
+from unicodecsv import UnicodeWriter
+
+from book_to_flashcards.Progress import Progress  # type: ignore
 
 
 @dataclass
@@ -16,9 +18,7 @@ class Card:
     translation: str | None
 
 
-def to_csv(
-    cards: Generator[Card, Any, Any], outputfile: str, progress: Callable[[], None]
-):
+def cards_to_csv(cards: Generator[Card, Any, Any], outputfile: str, progress: Progress):
     with open(outputfile, mode="wb") as file:
         writer = UnicodeWriter(file)
         filename = None
