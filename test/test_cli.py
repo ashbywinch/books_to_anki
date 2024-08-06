@@ -1,7 +1,7 @@
 import unittest
 import subprocess
+from sys import platform
 from parameterized import parameterized
-
 
 class TestClis(unittest.TestCase):
     """Tests for book_complexity module"""
@@ -54,5 +54,7 @@ class TestClis(unittest.TestCase):
             self.fail()
 
         print(" ".join(params))
-        result = subprocess.run([".env/Scripts/book-to-flashcard", *params])
+
+        bin = ".env/Scripts" if platform == "win32" else ".env/bin"
+        result = subprocess.run([f"{bin}/book-to-flashcard", *params])
         self.assertEqual(result.returncode, 0)
