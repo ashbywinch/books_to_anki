@@ -11,6 +11,7 @@ on:
     
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   build:
@@ -52,6 +53,7 @@ jobs:
       with:
         recreate: true
         path: code-coverage-results.md
+      
 
     - name: Build a binary wheel and a source tarball
       run: | 
