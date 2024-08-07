@@ -4,6 +4,7 @@ with translations in another language"""
 from collections.abc import Generator
 import glob
 import os
+import sys
 from typing import Any
 
 import alive_progress  # type: ignore
@@ -35,9 +36,16 @@ def cli_make_flashcards():
 @cli_make_flashcards.result_callback()
 def process_pipeline(processors):
     """Chain generators for each command into a pipeline"""
-    with make_progress_bar(__progress.num_steps) as bar:
-        __progress.bar = bar
-        iterator = None
+    iterator = None
+    # Don't do progress bar if nobody can see it
+    # Non tty outputs can't always handle UTF-8
+    if sys.stdout.isatty():
+        with make_progress_bar(__progress.num_steps) as bar:
+            __progress.bar = bar
+
+            for processor in processors:
+                iterator = processor(iterator)
+    else:
         for processor in processors:
             iterator = processor(iterator)
 

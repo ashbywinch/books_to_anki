@@ -8,4 +8,5 @@ class Progress:
     num_steps = 0
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:
-        self.bar()
+        if self.bar:
+            self.bar()
