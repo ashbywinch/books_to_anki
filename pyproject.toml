@@ -30,6 +30,12 @@ dynamic = ["version"]
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.coverage.run]
+source = ["src/"]
+
+[tool.pytest.ini_options]
+addopts = "--cov --cov-report=xml --ignore=output --ignore=data --ignore=__pycache__"
+
 [project.scripts]
 book-to-flashcard = "book_to_flashcards.cli_make_flashcards:cli_make_flashcards"
 book-complexity = "book_complexity.cli_book_complexity:cli_book_complexity"

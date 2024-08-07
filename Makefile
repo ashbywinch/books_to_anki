@@ -14,6 +14,7 @@ VENV_TARGET = $(BIN)/activate
 endif
 
 PYTHON = $(BIN)/python
+PYTEST = $(BIN)/pytest
 PIP = $(BIN)/pip
 PIP-COMPILE = $(BIN)/pip-compile
 
@@ -30,6 +31,8 @@ setup: requirements.txt $(VENV_TARGET)
 	$(PIP) install mypy
 	$(PIP) install parameterized
 	$(PIP) install line_profiler
+	$(PIP) install pytest
+	$(PIP) install pytest-cov
 	$(PIP) install build
 	$(PYTHON) -m spacy download en_core_web_sm
 	$(PYTHON) -m spacy download ru_core_news_sm
@@ -53,7 +56,7 @@ lint-github:
 
 .PHONY: test
 test:
-	$(PYTHON) -m unittest discover -s test
+	$(PYTEST)
 
 profile:
 	$(PYTHON) -m kernprof -lz .\test\call_book_complexity.py 
