@@ -55,7 +55,7 @@ lint-github:
 	$(BIN)/ruff check . --output-format=github
 
 .PHONY: test
-test:
+test: install-edit
 	$(PYTEST)
 
 profile:
