@@ -17,12 +17,19 @@ class TestClis(unittest.TestCase):
             ],
             ["folder", "dummy", "csv"],
             ["csv", "dummy", "csv"],
+            ["json", "dummy", "csv"],
             ["text", "dummy", "anki"],
             ["folder", "dummy", "anki"],
             ["csv", "dummy", "anki"],
+            ["json", "dummy", "anki"],
             ["text", "dummy", "sidebyside"],
             ["folder", "dummy", "sidebyside"],
             ["csv", "dummy", "sidebyside"],
+            ["json", "dummy", "sidebyside"],
+            ["text", "dummy", "json"],
+            ["folder", "dummy", "json"],
+            ["csv", "dummy", "json"],
+            ["json", "dummy", "json"],
         ]
     )
     def test_book_to_flashcard(
@@ -35,10 +42,12 @@ class TestClis(unittest.TestCase):
             params.extend(["from-folder", "test/data/dummy_books/"])
         elif source == "csv":
             params.extend(["from-csv", "test/data/test.csv"])
+        elif source == "json":
+            params.extend(["from-jsonl", "test/data/test.jsonl"])
         else:
-            self.fail()
+            self.fail(f"Unknown source {source}")
 
-        if source != "csv":
+        if source != "csv" and source != "json":
             params.extend(["pipeline", "--maxfieldlen", "50", "en_core_web_sm"])
 
         if translate == "dummy":
@@ -53,11 +62,17 @@ class TestClis(unittest.TestCase):
             params.extend(["to-sidebyside", "--fontsize", "12", "test/output"])
         elif sink == "anki":
             params.extend(["to-anki", "--fontsize", "12", "test/output/anki.apkg"])
+        elif sink == "json":
+            params.extend(["to-jsonl", "test/output/output.jsonl"])
         else:
-            self.fail()
+            self.fail(f"Unknown sink: {sink}")
 
         print(" ".join(params))
 
         bin = ".env/Scripts" if platform == "win32" else ".env/bin"
-        result = subprocess.run([f"{bin}/book-to-flashcard", *params])
-        self.assertEqual(result.returncode, 0)
+        result = subprocess.run(
+            [f"{bin}/book-to-flashcard", *params],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
