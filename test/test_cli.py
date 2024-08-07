@@ -1,7 +1,9 @@
+from pathlib import Path
 import unittest
 import subprocess
 from sys import platform
 from parameterized import parameterized
+
 
 class TestClis(unittest.TestCase):
     """Tests for book_complexity module"""
@@ -44,12 +46,13 @@ class TestClis(unittest.TestCase):
         elif translate:
             self.fail()
 
+        Path("test/output").mkdir(parents=True, exist_ok=True)
         if sink == "csv":
-            params.extend(["to-csv", "output.csv"])
+            params.extend(["to-csv", "test/output/output.csv"])
         elif sink == "sidebyside":
-            params.extend(["to-sidebyside", "--fontsize", "12", "."])
+            params.extend(["to-sidebyside", "--fontsize", "12", "test/output"])
         elif sink == "anki":
-            params.extend(["to-anki", "--fontsize", "12", "anki.apkg"])
+            params.extend(["to-anki", "--fontsize", "12", "test/output/anki.apkg"])
         else:
             self.fail()
 
