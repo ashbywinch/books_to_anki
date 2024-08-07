@@ -12,9 +12,10 @@ import click
 import deepl
 
 from book_to_flashcards.Progress import Progress
+from book_to_flashcards.cards_jsonl import cards_from_jsonl, cards_to_jsonl
 
-from .cards_from_csv import cards_from_csv
-from .Card import Card, cards_to_csv
+from .cards_csv import cards_from_csv, cards_to_csv
+from .Card import Card
 from .cards_to_anki import cards_to_anki
 from .cards_untranslated_from_file import cards_untranslated_from_file
 from .translate_cards import ReverseTextTranslator, translate_cards
@@ -68,6 +69,18 @@ def from_csv(
 ):
     def processor(iterator) -> Generator[Card, Any, Any]:
         for card in cards_from_csv(inputfile):
+            yield card
+
+    return processor
+
+
+@click.argument("inputfile", type=click.Path(dir_okay=False, exists=True))
+@cli_make_flashcards.command()
+def from_jsonl(
+    inputfile,
+):
+    def processor(iterator) -> Generator[Card, Any, Any]:
+        for card in cards_from_jsonl(inputfile):
             yield card
 
     return processor
@@ -152,6 +165,19 @@ def to_sidebyside(outputfolder, fontsize):
 def to_csv(outputfile):
     def processor(iterator: Generator[Card]):
         cards_to_csv(iterator, outputfile, __progress)
+
+    return processor
+
+
+@click.argument(
+    "outputfile",
+    type=click.Path(dir_okay=False, writable=True),
+    default="flashcards.json",
+)
+@cli_make_flashcards.command()
+def to_jsonl(outputfile):
+    def processor(iterator: Generator[Card]):
+        cards_to_jsonl(iterator, outputfile, __progress)
 
     return processor
 
