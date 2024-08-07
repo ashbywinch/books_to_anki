@@ -3,6 +3,7 @@ allowing the user to read the book in small chunks
 and test their understanding of the translation"""
 
 from collections.abc import Generator
+from dataclasses import dataclass
 import hashlib
 import html
 from pathlib import Path
@@ -16,6 +17,18 @@ from importlib_resources import files
 
 from book_to_flashcards.Card import Card
 import book_to_flashcards.resources
+
+
+@dataclass
+class AnkiNote:
+    """Representing a single flash card (or 'Note' in Anki)"""
+
+    filename: str
+    index_in_file: int
+    prev: str | None
+    current: str
+    next: str | None
+    translation: str | None
 
 
 class BookNote(genanki.Note):
@@ -80,6 +93,37 @@ def make_deckname(filename, structure: bool):
     return Path(filename).stem
 
 
+def add_prev_next(cards: Generator[Card, Any, Any]) -> Generator[AnkiNote, Any, Any]:
+    prev_card: Card = None
+    current_card: Card = None
+    for next_card in cards:
+        if current_card:
+            yield AnkiNote(
+                current_card.filename,
+                current_card.index_in_file,
+                (
+                    prev_card.current
+                    if (prev_card and prev_card.filename == current_card.filename)
+                    else ""
+                ),
+                current_card.current,
+                next_card.current if (next_card.filename == current_card.filename) else "",
+                current_card.translation,
+            )
+        prev_card = current_card
+        current_card = next_card
+
+    if current_card:
+        yield AnkiNote(
+            current_card.filename,
+            current_card.index_in_file,
+            prev_card.current if prev_card else "",
+            current_card.current,
+            "",
+            current_card.translation,
+        )
+
+
 def do_nothing():
     pass
 
@@ -99,10 +143,10 @@ def cards_to_anki(
     decks: list[genanki.Deck] = []
     deck = None
     try:
-        for card in cards:
+        for note in add_prev_next(cards):
             # if we've hit a new filename after processing some cards, we need to close the deck
             # and make a new one
-            deckname = make_deckname(card.filename, structure)
+            deckname = make_deckname(note.filename, structure)
             if deck is None or deck.name != deckname:
                 if deck:
                     decks.append(deck)
@@ -117,14 +161,12 @@ def cards_to_anki(
             note = BookNote(
                 model=model,
                 fields=[
-                    str(card.index_in_file),
-                    html.escape(Path(card.filename).stem),
-                    html.escape(card.prev),
-                    html.escape(card.current),
-                    html.escape(card.next),
-                    html.escape(
-                        str(card.translation)
-                    ),  # deepl translations are not strings
+                    str(note.index_in_file),
+                    html.escape(Path(note.filename).stem),
+                    html.escape(note.prev),
+                    html.escape(note.current),
+                    html.escape(note.next),
+                    html.escape(note.translation),
                 ],
             )
             deck.add_note(note)

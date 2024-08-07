@@ -39,5 +39,5 @@ def translate_cards(cards, translator, lang):
         )
         # put the translations back in the cards and return
         for card, translation in zip(lchunk, translations):
-            card.translation = translation
+            card.translation = str(translation)  # deepl translations are not strings
             yield card
