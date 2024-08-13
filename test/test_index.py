@@ -1,7 +1,7 @@
 from pathlib import Path
 import unittest
 
-from book_to_flashcards.cli_make_index import build_tree, tree_item
+from book_to_flashcards.cli_make_index import build_tree
 
 
 class TestMakingIndex(unittest.TestCase):

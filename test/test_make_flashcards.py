@@ -3,7 +3,7 @@
 from pathlib import Path
 import shutil
 import unittest
-from parameterized import parameterized
+from parameterized import parameterized  # type: ignore
 
 
 from book_to_flashcards import (

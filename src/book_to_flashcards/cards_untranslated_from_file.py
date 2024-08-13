@@ -18,7 +18,7 @@ def cards_untranslated_from_file(
     nlp = make_nlp(pipeline)
 
     cumulative_chars = current_sentence_base = 0
-    prev_span: Span = None
+    prev_span: Span | None = None
     with open(inputfile, mode="r", encoding="utf-8") as file:
         for line in file:
             docs = nlp.pipe([line.strip()])
@@ -31,7 +31,7 @@ def cards_untranslated_from_file(
                         ):  # once current_span moves from one doc to the next
                             current_sentence_base = cumulative_chars
                         prev_span = span
-                        
+
                         yield Card(
                             filename = Path(inputfile).as_posix(),
                             index_in_file=current_sentence_base + span.start_char,

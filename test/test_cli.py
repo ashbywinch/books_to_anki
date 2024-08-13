@@ -3,7 +3,7 @@ import shutil
 import unittest
 import subprocess
 from sys import platform
-from parameterized import parameterized
+from parameterized import parameterized  # type: ignore
 
 
 class TestClis(unittest.TestCase):
