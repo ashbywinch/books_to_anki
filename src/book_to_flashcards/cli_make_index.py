@@ -8,12 +8,12 @@ def tree_item(dir_path: Path):
     if dir_path.match(filter):
         return str(dir_path.name)
     elif dir_path.is_dir():
-        return tree(dir_path)
+        return build_tree(dir_path)
     else:
         return None
 
 
-def tree(dir_path: Path):
+def build_tree(dir_path: Path):
     """A recursive tree builder, given a directory Path object
     will build a list based tree of folder names and text file names
     """
@@ -32,7 +32,7 @@ def tree(dir_path: Path):
 )
 def folder_to_json_tree(folder, outputfile):
     with open(outputfile, "w", encoding="utf-8") as file:
-        json.dump(tree(Path(folder)), file, ensure_ascii=False)
+        json.dump(build_tree(Path(folder)), file, ensure_ascii=False)
 
 
 # generate-cards from-text input.txt pipeline "ru_core" translate output-sidebyside output.html
