@@ -94,20 +94,20 @@ def make_deckname(filename, structure: bool):
 
 
 def add_prev_next(cards: Generator[Card, Any, Any]) -> Generator[AnkiNote, Any, Any]:
-    prev_card: Card = None
-    current_card: Card = None
+    prev_card: Card | None = None
+    current_card: Card | None = None
     for next_card in cards:
         if current_card:
             yield AnkiNote(
                 current_card.filename,
                 current_card.index_in_file,
                 (
-                    prev_card.current
+                    prev_card.text
                     if (prev_card and prev_card.filename == current_card.filename)
                     else ""
                 ),
-                current_card.current,
-                next_card.current if (next_card.filename == current_card.filename) else "",
+                current_card.text,
+                next_card.text if (next_card.filename == current_card.filename) else "",
                 current_card.translation,
             )
         prev_card = current_card
@@ -117,8 +117,8 @@ def add_prev_next(cards: Generator[Card, Any, Any]) -> Generator[AnkiNote, Any, 
         yield AnkiNote(
             current_card.filename,
             current_card.index_in_file,
-            prev_card.current if prev_card else "",
-            current_card.current,
+            prev_card.text if prev_card else "",
+            current_card.text,
             "",
             current_card.translation,
         )
@@ -163,10 +163,10 @@ def cards_to_anki(
                 fields=[
                     str(note.index_in_file),
                     html.escape(Path(note.filename).stem),
-                    html.escape(note.prev),
+                    html.escape(note.prev) if note.prev else "", # type:ignore
                     html.escape(note.current),
-                    html.escape(note.next),
-                    html.escape(note.translation),
+                    html.escape(note.next) if note.next else "",  # type:ignore
+                    html.escape(note.translation) if note.translation else "",  # type:ignore
                 ],
             )
             deck.add_note(note)

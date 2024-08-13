@@ -1,7 +1,10 @@
 """Test book_to_flashcards module"""
 
 from pathlib import Path
+import shutil
 import unittest
+from parameterized import parameterized  # type: ignore
+
 
 from book_to_flashcards import (
     ReverseTextTranslator,
@@ -9,20 +12,30 @@ from book_to_flashcards import (
 )
 from book_to_flashcards.cards_to_anki import cards_to_anki
 from book_to_flashcards.cli_make_flashcards import translate_cards
+from book_to_flashcards.cards_jsonl import cards_from_jsonl, cards_to_jsonl  # type: ignore
 
 
 class TestMakingCardsFromFile(unittest.TestCase):
     """Test book_to_flashcards module"""
 
-    testfile = "test/data/dummy_books/dummy_book.txt"
+    testTextFile = "test/data/dummy_books/dummy_book.txt"
     max_chars = 70
+
+    testOutput = Path("test/output/")
+
+    def setUp(self):
+        
+        if self.testOutput.exists():
+            shutil.rmtree(self.testOutput)
+            
+        self.testOutput.mkdir(exist_ok=True)
 
     def test_generate_flashcards_translated(self):
         """Test that we can get a container of card objects from the file"""
         translator = ReverseTextTranslator()
         cards = list(
             cards_untranslated_from_file(
-                self.testfile,
+                self.testTextFile,
                 pipeline="en_core_web_sm",
                 maxfieldlen=self.max_chars,
             )
@@ -30,29 +43,30 @@ class TestMakingCardsFromFile(unittest.TestCase):
         cards = list(translate_cards(cards, translator, lang="dummy"))
         for card in cards:
             # check that every card has been translated
-            self.assertEqual(card.translation, card.current[::-1])
+            self.assertEqual(card.translation, card.text[::-1])
         self.assertEqual(len(cards), 10)
 
     def test_generate_flashcards_not_translated(self):
         """Test that we can get a container of card objects from the file without translations"""
         cards = list(
             cards_untranslated_from_file(
-                self.testfile, pipeline="en_core_web_sm", maxfieldlen=self.max_chars
+                self.testTextFile, pipeline="en_core_web_sm", maxfieldlen=self.max_chars
             )
         )
         for card in cards:
             # check that every card has not been translated
             self.assertEqual(card.translation, "")
+        for card in cards[1:]:
+            self.assertGreater(card.index_in_file, 0)
         self.assertEqual(len(cards), 10)
 
     def test_generate_anki_package_translate(self):
         """Don't know how to validate an anki package, but at least we can check
         that the code doesn't fall over"""
         translator = ReverseTextTranslator()
-        Path("test/output/").mkdir(exist_ok=True)
-
+        
         cards = cards_untranslated_from_file(
-            "test/data/dummy_books/dummy_book.txt",
+            self.testTextFile,
             pipeline="en_core_web_sm",
             maxfieldlen=70,
         )
@@ -67,7 +81,6 @@ class TestMakingCardsFromFile(unittest.TestCase):
     def test_generate_anki_package_notranslate(self):
         """Don't know how to validate an anki package, but at least we can check
         that the code doesn't fall over"""
-        Path("test/output/").mkdir(exist_ok=True)
         cards = cards_untranslated_from_file(
             "test/data/dummy_books/dummy_book.txt",
             pipeline="en_core_web_sm",
@@ -80,6 +93,32 @@ class TestMakingCardsFromFile(unittest.TestCase):
             structure=True,
         )
 
+    @parameterized.expand(
+        [
+            [ "dummy", "jsonl" ],
+            [ "dummy", "jsonls" ],
+        ]
+    )
+    def test_book_to_flashcard_roundtrip(
+        self, translate: str = "dummy", sink: str = "jsonl"
+    ):
+        cardsin = cards_from_jsonl("test/data/dummy_books/")
+        if(translate == "dummy"):
+            cardsin = translate_cards(cardsin, ReverseTextTranslator(), "dummy")
+        elif translate is not None:
+            self.fail(f"Unsupported translator {translate}")
+
+        if sink == "jsonl":
+            cards_to_jsonl(cardsin, "test/output/output.jsonl")
+            cardsout = cards_from_jsonl("test/output/output.jsonl")
+        elif sink == "jsonls":
+            cards_to_jsonl(cardsin, "test/output/jsonl/")
+            cardsout = cards_from_jsonl("test/output/jsonl")
+        else:
+            self.fail(f"Can't round trip sink: {sink}")
+        self.assertEqual(len(list(cardsin)), len(list(cardsout)))
+        for (a, b) in zip(cardsin, cardsout):
+            self.assertEqual(a, b)
 
 if __name__ == "__main__":
     unittest.main()

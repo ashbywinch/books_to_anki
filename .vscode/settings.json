@@ -1,7 +1,7 @@
 {
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
-    
+    "testing.showCoverageInExplorer": true,
     
     "activestate.promptRuntimeCreation": false,
 
@@ -15,4 +15,5 @@
             },
         ],
     },
+    "git.pruneOnFetch": true
 }

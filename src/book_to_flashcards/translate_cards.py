@@ -35,7 +35,7 @@ def translate_cards(cards, translator, lang):
         # get all the translations
         lchunk = list(chunk)
         translations = translator.translate_text(
-            [card.current for card in lchunk], target_lang=lang
+            [card.text for card in lchunk], target_lang=lang
         )
         # put the translations back in the cards and return
         for card, translation in zip(lchunk, translations):

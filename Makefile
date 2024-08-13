@@ -56,7 +56,7 @@ lint-github:
 
 .PHONY: test
 test: install-edit
-	$(PYTEST)
+	$(PYTEST) --cov=src --cov-report=xml
 
 profile:
 	$(PYTHON) -m kernprof -lz .\test\call_book_complexity.py 

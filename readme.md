@@ -77,34 +77,34 @@ book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' transla
 
 ### Advanced usage
 
-Reading and writing to an intermediate CSV format is also supported. For example, you can
+Reading and writing to an intermediate jsonl format is also supported. For example, you can
 
-* generate a CSV of cards without translations, in order to try multiple different translations without reprocessing the source files (processing the source files can take quite some time, if you have lots of text to process).
+* generate a file of cards without translations, in order to try multiple different translations without reprocessing the source files (processing the source files can take quite some time, if you have lots of text to process).
 
 ```Powershell
-> book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' to-csv 'all_my_books.csv'
-> book-to-flashcard from-csv 'all_my_books.csv' translate --deeplkey 'YOUR_KEY' lang='EN-GB' to-anki 'all_my_books_english.apkg'
-> book-to-flashcard from-csv 'all_my_books.csv' translate --deeplkey 'YOUR_KEY' lang='ES' to-anki 'all_my_books_spanish.apkg'
+> book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' to-jsonl 'all_my_books.jsonl'
+> book-to-flashcard from-jsonl 'all_my_books.jsonl' translate --deeplkey 'YOUR_KEY' lang='EN-GB' to-anki 'all_my_books_english.apkg'
+> book-to-flashcard from-jsonl 'all_my_books.jsonl' translate --deeplkey 'YOUR_KEY' lang='ES' to-anki 'all_my_books_spanish.apkg'
 ```
 
-* generate a CSV of translated cards, and then use that file to experiment with output in a variety of font sizes without re-translating the cards (which would use up your DeepL API key)
+* generate a file of translated cards, and then use that file to experiment with output in a variety of font sizes without re-translating the cards (which would use up your DeepL API key)
 
 ```Powershell
-> book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' translate --deeplkey 'YOUR_KEY' lang='EN-GB' to-csv 'all_my_books.csv'
-> book-to-flashcard from-csv 'all_my_books.csv' to-anki --fontsize 30 'all_my_books_big.apkg'
-> book-to-flashcard from-csv 'all_my_books.csv' to-anki -fontsize 14 'all_my_books_small.apkg'
+> book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' translate --deeplkey 'YOUR_KEY' lang='EN-GB' to-jsonl 'all_my_books.jsonl'
+> book-to-flashcard from-jsonl 'all_my_books.jsonl' to-anki --fontsize 30 'all_my_books_big.apkg'
+> book-to-flashcard from-jsonl 'all_my_books.jsonl' to-anki -fontsize 14 'all_my_books_small.apkg'
 ```
 
 There is also a dummy translation option that can be used to make experiments without using up a DeepL API key. This provides "translations" that are just the original text reversed, so "Hi!" becomes "!iH".
 
 ```Powershell
-> book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' dummy-translate to-csv 'all_my_books.csv'
+> book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' dummy-translate to-jsonl 'all_my_books.jsonl'
 ```
 
 Alternatively, leaving out the translation option altogether gives output with blank translations.
 
 ```Powershell
-> book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' to-csv 'all_my_books.csv'
+> book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' to-jsonl 'all_my_books.jsonl'
 ```
 
 ## books-complexity and book-complexity

@@ -14,12 +14,10 @@ import deepl
 from book_to_flashcards.Progress import Progress
 from book_to_flashcards.cards_jsonl import cards_from_jsonl, cards_to_jsonl
 
-from .cards_csv import cards_from_csv, cards_to_csv
 from .Card import Card
 from .cards_to_anki import cards_to_anki
 from .cards_untranslated_from_file import cards_untranslated_from_file
 from .translate_cards import ReverseTextTranslator, translate_cards
-from cards_to_html import cards_to_html
 
 
 __progress = Progress()
@@ -43,9 +41,11 @@ def process_pipeline(processors):
     if sys.stdout.isatty():
         with make_progress_bar(__progress.num_steps) as bar:
             __progress.bar = bar
-
-            for processor in processors:
-                iterator = processor(iterator)
+            try:
+                for processor in processors:
+                    iterator = processor(iterator)
+            except Exception as e:
+                print(e, file=sys.stderr)
     else:
         for processor in processors:
             iterator = processor(iterator)
@@ -64,24 +64,11 @@ def from_text(
 
 @click.argument("inputfile", type=click.Path(dir_okay=False, exists=True))
 @cli_make_flashcards.command()
-def from_csv(
-    inputfile,
-):
-    def processor(iterator) -> Generator[Card, Any, Any]:
-        for card in cards_from_csv(inputfile):
-            yield card
-
-    return processor
-
-
-@click.argument("inputfile", type=click.Path(dir_okay=False, exists=True))
-@cli_make_flashcards.command()
 def from_jsonl(
     inputfile,
 ):
     def processor(iterator) -> Generator[Card, Any, Any]:
-        for card in cards_from_jsonl(inputfile):
-            yield card
+        yield from cards_from_jsonl(inputfile)
 
     return processor
 
@@ -131,53 +118,13 @@ def to_anki(outputfile, fontsize):
 
 
 @click.argument(
-    "outputfolder",
-    type=click.Path(exists=True, file_okay=False, writable=True),
-    default=os.getcwd(),
-)
-@click.option(
-    "--fontsize",
-    type=click.IntRange(),
-    default=30,
-    show_default=True,
-    help="Font sized used for card text in output",
+    "outputpath",
+    type=click.Path(writable=True)
 )
 @cli_make_flashcards.command()
-def to_sidebyside(outputfolder, fontsize):
-
-    def processor(iterator):
-        cards_to_html.cards_to_htmls(
-            iterator,
-            outputfolder=outputfolder,
-            fontsize=fontsize,
-            on_file_complete=__progress,
-        )
-
-    return processor
-
-
-@click.argument(
-    "outputfile",
-    type=click.Path(dir_okay=False, writable=True),
-    default="flashcards.csv",
-)
-@cli_make_flashcards.command()
-def to_csv(outputfile):
+def to_jsonl(outputpath):
     def processor(iterator: Generator[Card]):
-        cards_to_csv(iterator, outputfile, __progress)
-
-    return processor
-
-
-@click.argument(
-    "outputfile",
-    type=click.Path(dir_okay=False, writable=True),
-    default="flashcards.json",
-)
-@cli_make_flashcards.command()
-def to_jsonl(outputfile):
-    def processor(iterator: Generator[Card]):
-        cards_to_jsonl(iterator, outputfile, __progress)
+        cards_to_jsonl(iterator, outputpath, __progress)
 
     return processor
 
@@ -193,10 +140,9 @@ def to_jsonl(outputfile):
 def pipeline(pipeline, maxfieldlen):
     def processor(iterator: Generator[str]) -> Generator[Card]:
         for filename in iterator:
-            for card in cards_untranslated_from_file(
+            yield from cards_untranslated_from_file(
                 inputfile=filename, pipeline=pipeline, maxfieldlen=maxfieldlen
-            ):
-                yield card
+            )
 
     return processor
 
@@ -213,8 +159,7 @@ def pipeline(pipeline, maxfieldlen):
 def translate(lang, deeplkey):
     def processor(iterator) -> Generator[Card]:
         translator = deepl.Translator(deeplkey)
-        for card in translate_cards(iterator, translator, lang):
-            yield card
+        yield from translate_cards(iterator, translator, lang)
 
     return processor
 
@@ -223,10 +168,6 @@ def translate(lang, deeplkey):
 def dummy_translate():
     def processor(iterator) -> Generator[Card]:
         translator = ReverseTextTranslator()
-        for card in translate_cards(iterator, translator, "dummy"):
-            yield card
+        yield from translate_cards(iterator, translator, "dummy")
 
     return processor
-
-
-# generate-cards from-text input.txt pipeline "ru_core" translate output-sidebyside output.html

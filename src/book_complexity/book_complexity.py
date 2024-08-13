@@ -119,7 +119,7 @@ def get_book_complexity(
     vocabulary: set[str] | None = None,
     frequency: dict[str, int] | None = None,
     levels: list[range] | None = None,
-) -> dict[str, int]:
+) -> OrderedDict[str, int | float]:
     """Calculate and return the complexity of a single file
     (or other iterable that produces strings)"""
     calculators = ComplexityCalculators(
