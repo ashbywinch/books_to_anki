@@ -5,7 +5,6 @@ from split_sentences import make_nlp, split_sentence
 
 from collections.abc import Generator
 from typing import Any
-from spacy.tokens import Span
 
 
 def cards_untranslated_from_file(
@@ -17,8 +16,7 @@ def cards_untranslated_from_file(
     This is much quicker and avoids 'using up' a DeepL API key if you don't need it"""
     nlp = make_nlp(pipeline)
 
-    doc_base = current_sentence_base = 0
-    prev_span: Span | None = None
+    doc_base = 0
     
     file = open(inputfile, mode="r", encoding="utf-8")
     docs = nlp.pipe(file)
