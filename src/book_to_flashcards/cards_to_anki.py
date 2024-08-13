@@ -102,12 +102,12 @@ def add_prev_next(cards: Generator[Card, Any, Any]) -> Generator[AnkiNote, Any, 
                 current_card.filename,
                 current_card.index_in_file,
                 (
-                    prev_card.current
+                    prev_card.text
                     if (prev_card and prev_card.filename == current_card.filename)
                     else ""
                 ),
-                current_card.current,
-                next_card.current if (next_card.filename == current_card.filename) else "",
+                current_card.text,
+                next_card.text if (next_card.filename == current_card.filename) else "",
                 current_card.translation,
             )
         prev_card = current_card
@@ -117,8 +117,8 @@ def add_prev_next(cards: Generator[Card, Any, Any]) -> Generator[AnkiNote, Any, 
         yield AnkiNote(
             current_card.filename,
             current_card.index_in_file,
-            prev_card.current if prev_card else "",
-            current_card.current,
+            prev_card.text if prev_card else "",
+            current_card.text,
             "",
             current_card.translation,
         )

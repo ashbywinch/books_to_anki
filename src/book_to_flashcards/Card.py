@@ -7,7 +7,5 @@ class Card:
 
     filename: str
     index_in_file: int
-    prev: str | None
-    current: str
-    next: str | None
+    text: str
     translation: str | None

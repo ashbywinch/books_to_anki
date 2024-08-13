@@ -35,9 +35,12 @@ where = ["src"]
 source = ["src/"]
 
 [tool.pytest.ini_options]
-addopts = "--cov=src --cov-report=xml --ignore=output --ignore=data --ignore=__pycache__"
+#addopts = "--cov=src --cov-report=xml --ignore=output --ignore=data --ignore=__pycache__"
+addopts = "--ignore=output --ignore=data --ignore=__pycache__"
+
 
 [project.scripts]
 book-to-flashcard = "book_to_flashcards.cli_make_flashcards:cli_make_flashcards"
 book-complexity = "book_complexity.cli_book_complexity:cli_book_complexity"
 books-complexity = "book_complexity.cli_book_complexity:cli_books_complexity"
+folder-to-json-index = "book_to_flashcards.cli_make_index:folder_to_json_tree"
