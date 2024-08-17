@@ -33,7 +33,7 @@ jobs:
         make lint-github
     - name: Test 
       run: |
-        make install
+        make install-edit 
         make test
     - name: Code Coverage Summary Report
       uses: irongut/CodeCoverageSummary@v1.3.0
