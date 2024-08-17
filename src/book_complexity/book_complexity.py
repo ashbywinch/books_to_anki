@@ -1,7 +1,10 @@
 """Calculate various complexity metrics for texts in human language"""
 
 import glob
+from pathlib import Path
 from typing import OrderedDict, TextIO, cast
+import orjsonl as jsonl
+
 
 # from line_profiler import profile
 
@@ -189,33 +192,39 @@ levels = [
 ]
 
 
+def get_book_props(filename: str):
+    return {"title": Path(filename).stem, "author": Path(filename).parent.stem}
+
+
+def get_complexities(files, nlp, known_morph_list=None, frequencies=None):
+    for filename in files:
+        with open(filename, "r", encoding="utf-8") as file:
+            complexity = get_book_complexity(
+                file, nlp, known_morph_list, frequencies, levels
+            )
+            yield {"lang": nlp.meta["lang"]} | get_book_props(file.name) | complexity
+
+
 def get_books_complexity(
     inputfolder: str,
     pipeline: str,
     knownmorphs: TextIO,
     frequencycsv: TextIO,
-    outputcsv: TextIO,
+    outputfilename: str,
 ):
     """Calculate the complexity of all text files in a folder, and
     output a CSV with one line per text file"""
-    nlp = make_nlp(pipeline)
-    known_morph_list = morphs_from_csv(knownmorphs) if knownmorphs else None
-    frequencies = frequencies_from_csv(frequencycsv) if frequencycsv else None
-
     files = glob.glob(inputfolder + "/**/*.txt", recursive=True)
-    if outputcsv:
-        with alive_progress.alive_bar(
-            len(files), bar="bubbles", spinner="classic"
-        ) as bar:
-            writer = unicodecsv.writer(outputcsv)
-
-            for index, filename in enumerate(files):
-                with open(filename, "r", encoding="utf-8") as file:
-                    complexity = get_book_complexity(
-                        file, nlp, known_morph_list, frequencies, levels
-                    )
-                    if index == 0:
-                        writer.writerow(["Filename"] + list(complexity.keys()))
-                    writer.writerow([file.name] + list(complexity.values()))
-                bar.text(filename)
-                bar()
+    with alive_progress.alive_bar(len(files), bar="bubbles", spinner="classic") as bar:
+        nlp = make_nlp(pipeline)
+        known_morph_list = morphs_from_csv(knownmorphs) if knownmorphs else None
+        frequencies = frequencies_from_csv(frequencycsv) if frequencycsv else None
+        data = get_complexities(
+            files=files,
+            nlp=nlp,
+            known_morph_list=known_morph_list,
+            frequencies=frequencies,
+        )
+        for row in data:
+            jsonl.append(outputfilename, row)
+            bar()

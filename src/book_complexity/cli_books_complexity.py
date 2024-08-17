@@ -20,11 +20,19 @@ import click
     "--pipeline", help="Name of spacy pipeline to read files"
 )  # ru_core_news_sm
 @click.option(
-    "--outputcsv",
-    type=click.File(mode="wb"),
-    help="Name of a csv file to put the results",
+    "--outputfilename",
+    type=click.Path(dir_okay=False),
+    help="Name of a jsonl file to put the results",
 )
-def cli_books_complexity(inputfolder, pipeline, knownmorphs, frequencycsv, outputcsv):
+def cli_books_complexity(
+    inputfolder, pipeline, knownmorphs, frequencycsv, outputfilename
+):
     """Calculate the complexity of all text files in a folder, and
     output a CSV with one line per text file"""
-    get_books_complexity(inputfolder, pipeline, knownmorphs, frequencycsv, outputcsv)
+    get_books_complexity(
+        inputfolder=inputfolder,
+        pipeline=pipeline,
+        knownmorphs=knownmorphs,
+        frequencycsv=frequencycsv,
+        outputfilename=outputfilename,
+    )

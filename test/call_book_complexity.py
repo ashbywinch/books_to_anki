@@ -11,7 +11,7 @@ if __name__ == "__main__":
         get_books_complexity(
             inputfolder="data/books-small",
             pipeline="ru_core_news_sm",
-            outputcsv=outputcsv,
             knownmorphs=vocabulary,
             frequencycsv=frequencycsv,
+            outputfilename="complexity.jsonl",
         )
