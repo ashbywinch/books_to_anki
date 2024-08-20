@@ -1,19 +1,9 @@
 from dataclasses import dataclass
 from functools import reduce
-from typing import Callable, OrderedDict
+from typing import Any, OrderedDict
 
 # from line_profiler import profile
 from spacy.tokens import Doc, Token, Span
-
-
-@dataclass
-class ComplexityRatio:
-    """The names of the two complexity calculator objects whose values
-    we'll use in a ratio calculation"""
-
-    numerator: str
-    denominator: str
-    percentage: bool = False
 
 
 Number = int | float
@@ -23,50 +13,85 @@ Number = int | float
 class ComplexityCalculator:
     """Calculate complexity either per sentence, or per token
     Results for each sentence/token can be combined with combine_values to give a score for the
-    whole document
+    whole document.
+    The final value will be processed once with and_finally
     """
 
-    process_sentence: Callable[[Span], Number] | None = None
-    process_token: Callable[[Token], Number] | None = None
-    combine_values: Callable[[Number, Number], Number] = lambda x, y: x + y
+    name: str = ""
+
+    # Take a sentence and return your type of choice
+    def process_sentence(self, span: Span):
+        return self.null_value()
+
+    # Take a token and return your type of choice
+    def process_token(self, token: Token):
+        return self.null_value()
+
+    # Take two objects with the same type as the return type from process_token. Return the same type.
+    # Used to combine values from multiple tokens/sentences to give a value for a whole doc/text
+    def combine_values(self, x, y):
+        return x + y
+
+    # Take a single object with the same type as the return type from process_token. Return a number.
+    # Allows subclasses to postprocess the combined values in some way
+    def and_finally(self, combined_values):
+        return combined_values
+
+    # A value that we can kick off our combination efforts with
+    def null_value(self):
+        return 0
+
+    def __truediv__(self, other):
+        return ComplexityRatio(self, other, False)
+
+
+@dataclass
+class ComplexityRatio:
+    """The names of the two complexity calculator objects whose values
+    we'll use in a ratio calculation"""
+
+    name: str
+    numerator: str
+    denominator: str
+    percentage: bool = False
+
+    def as_percentage(self):
+        return ComplexityRatio(self.name, self.numerator, self.denominator, True)
 
 
 # All our calculators and results are referenced by a name e.g. "Grammar Depth"
-ComplexityResults = OrderedDict[str, Number]
+ComplexityResults = OrderedDict[str, Any]
 
 
 class ComplexityCalculators:
-    """Take an ordered collection of complexity calculators and ratios.
+    """Build an ordered collection of complexity calculators and ratios.
     Use map/reduce to apply the calculators to a document (breaking the document
     down into sentences and tokens as appropriate to the calculator)
     Calculate all the ratios at the end and return all the results, in the same order as
     the original calculators and ratios were provided.
     """
 
-    def __init__(
-        self,
-        calculators: OrderedDict[str, ComplexityCalculator],
-        ratios: OrderedDict[str, ComplexityRatio],
-    ):
-        self.calculators = calculators
-        self.ratios = ratios
+    calculators = OrderedDict[str, ComplexityCalculator]()
+    ratios = OrderedDict[str, ComplexityRatio]()
 
-    def __calculate_ratio(
-        self, ratio: ComplexityRatio, results: ComplexityResults
-    ) -> float | int:
-        numerator = results[ratio.numerator]
-        denominator = results[ratio.denominator]
-        result = numerator / denominator if denominator > 0 else 0
-        return int(result * 100) if ratio.percentage else round(result, 1)
+    def add(self, name: str, c: ComplexityCalculator):
+        self.calculators[name] = c
+
+    def addRatio(self, ratio: ComplexityRatio):
+        self.ratios[ratio.name] = ratio
+
+    def __getitem__(self, key):
+        if key in self.calculators:
+            return self.calculators[key]
+        elif key in self.ratios:
+            return self.ratios[key]
+        else:
+            raise Exception(f"No calculator or ratio: {key}")
 
     def __get_token_values(self, token: Token) -> ComplexityResults:
         """Apply all the calculators to this token"""
         return ComplexityResults(
-            [
-                (name, c.process_token(token))
-                for name, c in self.calculators.items()
-                if c.process_token
-            ]
+            [(name, c.process_token(token)) for name, c in self.calculators.items()]
         )
 
     def __get_sentence_values(self, sent: Span) -> ComplexityResults:
@@ -74,11 +99,7 @@ class ComplexityCalculators:
         and the token calculators to its tokens"""
 
         sentence_results = ComplexityResults(
-            [
-                (name, c.process_sentence(sent))
-                for name, c in self.calculators.items()
-                if c.process_sentence
-            ]
+            [(name, c.process_sentence(sent)) for name, c in self.calculators.items()]
         )
 
         token_results = reduce(
@@ -96,7 +117,9 @@ class ComplexityCalculators:
 
     def __get_initial_values(self) -> ComplexityResults:
         """Null results that we would expect from an empty document"""
-        return OrderedDict((name, 0) for name, c in self.calculators.items())
+        return OrderedDict(
+            (name, c.null_value()) for name, c in self.calculators.items()
+        )
 
     def __merge(self, x: ComplexityResults, y: ComplexityResults) -> ComplexityResults:
         """Call the combine_values function from each calculator on the corresponding values
@@ -105,14 +128,23 @@ class ComplexityCalculators:
         """
         return ComplexityResults(
             [
-                (name, c.combine_values(x.get(name, 0), y.get(name, 0)))
+                (
+                    name,
+                    c.combine_values(x[name], y[name]),
+                )
                 for name, c, in self.calculators.items()
             ]
         )
 
-    def __get_ratios(self, results: ComplexityResults):
+    def __get_ratio(self, ratio: ComplexityRatio, calculationResults) -> float | int:
+        numerator = calculationResults[ratio.numerator]
+        denominator = calculationResults[ratio.denominator]
+        result = numerator / denominator if denominator > 0 else 0
+        return int(result * 100) if ratio.percentage else round(result, 1)
+
+    def __get_ratios(self, calculationResults):
         return [
-            [name, self.__calculate_ratio(ratio, results)]
+            [name, self.__get_ratio(ratio, calculationResults)]
             for name, ratio in self.ratios.items()
         ]
 
@@ -124,22 +156,23 @@ class ComplexityCalculators:
             map(lambda doc: self.__get_values(doc), docs),
             self.__get_initial_values(),
         )
+        results = self.__and_finally(results)
+
         for k, v in self.__get_ratios(results):
             results[k] = v
 
         return results
 
-
-def word_count(token: Token):
-    return 0 if token.is_punct or token.is_space else 1
-
-
-def sentence_count(sentence: Span) -> int:
-    return 1
-
-
-def word_length(token: Token) -> int:
-    return 0 if token.is_punct or token.is_space else len(token.text)
+    def __and_finally(self, results: ComplexityResults):
+        return ComplexityResults(
+            [
+                (
+                    name,
+                    c.and_finally(results[name]),
+                )
+                for name, c, in self.calculators.items()
+            ]
+        )
 
 
 # @profile

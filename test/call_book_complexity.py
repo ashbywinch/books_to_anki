@@ -7,9 +7,9 @@ from book_complexity import get_books_complexity
 if __name__ == "__main__":
     with open("data/vocabulary.csv", mode="rb") as vocabulary, open(
         "data/ru-freq.csv", mode="rb"
-    ) as frequencycsv, open("test/output/output.csv", mode="wb") as outputcsv:
+    ) as frequencycsv:
         get_books_complexity(
-            inputfolder="data/books-small",
+            inputfolder="data/books",
             pipeline="ru_core_news_sm",
             knownmorphs=vocabulary,
             frequencycsv=frequencycsv,

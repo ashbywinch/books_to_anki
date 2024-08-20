@@ -4,11 +4,14 @@ import glob
 import unittest
 
 from book_complexity import get_book_complexity, make_nlp
+from book_complexity import ComplexityCalculators
 from book_complexity.ComplexityCalculators import (
     sentence_grammar_depth,
-    sentence_count,
 )
-from book_complexity.book_complexity import get_complexities
+from book_complexity.book_complexity import (
+    VocabLevelCalculator,
+    get_complexities,
+)
 
 nlp_ru = make_nlp("ru_core_news_sm")
 nlp_en = make_nlp("en_core_web_sm")
@@ -24,10 +27,6 @@ class TestBookComplexityOnShortString(unittest.TestCase):
     def test_grammar_depth_simple(self):
         """Are grammar depth correct on a known short string?"""
         self.assertEqual(sentence_grammar_depth(next(self.doc.sents)), 2)
-
-    def test_sentence_count_simple(self):
-        """Are sentence count calcs correct on a known short string?"""
-        self.assertEqual(sentence_count(next(self.doc.sents)), 1)
 
 
 class TestBookComplexityOnMultipleLongerStrings(unittest.TestCase):
@@ -58,11 +57,20 @@ class TestBookComplexityOnMultipleLongerStrings(unittest.TestCase):
         teststrings = ["Bob likes green peas"]
         vocabulary = {"likes", "peas"}
         complexity = get_book_complexity(teststrings, nlp_en, vocabulary=vocabulary)
+        print(complexity)
 
         self.assertEqual(complexity["Words Known"], 2)
         self.assertEqual(complexity["Percent Words Known"], 50)
 
-    def test_vocabulary_level(self):
+    def simple_test_vocabulary_level(self):
+        frequency = {"peas": 500, "likes": 20}
+        levels = [range(0, 400), range(400, 1000)]
+        calculators = ComplexityCalculators()
+        calculators.add(VocabLevelCalculator(frequency, levels))
+
+        calculators.get_results()
+
+    def test_vocabulary_level_basic(self):
         frequency = {"peas": 500, "likes": 20}
         levels = [range(0, 400), range(400, 1000)]
         teststrings = ["Bob likes green peas"]
@@ -71,7 +79,18 @@ class TestBookComplexityOnMultipleLongerStrings(unittest.TestCase):
             teststrings, nlp_en, frequency=frequency, levels=levels
         )
 
-        self.assertEqual(complexity["Vocabulary Level"], 1)
+        self.assertEqual(complexity["Vocab Level"], 1)
+
+    def test_vocabulary_level_percentile(self):
+        frequency = {"peas": 500, "likes": 20, "supercalifragilistic": 2000}
+        levels = [range(0, 400), range(400, 1000), range(1000, 5000)]
+        teststrings = ["Bob likes green peas " * 5 + " supercalifragilistic"]
+
+        complexity = get_book_complexity(
+            teststrings, nlp_en, frequency=frequency, levels=levels
+        )
+        # Should still only be 1 despite a low frequency word sneaking in
+        self.assertEqual(complexity["Vocab Level"], 1)
 
 
 class test_get_complexities_from_folder(unittest.TestCase):

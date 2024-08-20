@@ -4,6 +4,7 @@ import glob
 from pathlib import Path
 from typing import OrderedDict, TextIO, cast
 import orjsonl as jsonl
+from spacy.tokens import Token, Span
 
 
 # from line_profiler import profile
@@ -13,10 +14,7 @@ from book_complexity.ComplexityCalculators import (
     ComplexityCalculators,
     ComplexityRatio,
     sentence_grammar_depth,
-    word_length,
-    sentence_count,
     vocabulary_level,
-    word_count,
     words_known,
 )
 import spacy
@@ -33,78 +31,83 @@ def make_nlp(pipeline: str):
     return spacy.load(pipeline, exclude=["lemmatizer", "ner", "attribute_ruler"])
 
 
-def build_calculators(
-    vocabulary: set[str] | None,
-    frequency: dict[str, int] | None,
-    levels: list[range] | None,
-) -> OrderedDict[str, ComplexityCalculator]:
-    """Assemble the list of complexity calculators that we'll use in this run"""
-    calculators = OrderedDict(
-        [
-            (
-                "Sentence Count",
-                ComplexityCalculator(process_sentence=sentence_count),
-            ),
-            ("Word Count", ComplexityCalculator(process_token=word_count)),
-            (
-                "Cumulative Word Length",
-                ComplexityCalculator(process_token=word_length),
-            ),
-            (
-                "Cumulative Grammar Depth",
-                ComplexityCalculator(process_sentence=sentence_grammar_depth),
-            ),
-        ]
-    )
-    if vocabulary:
-        calculators["Words Known"] = ComplexityCalculator(
-            process_token=lambda token: words_known(token, cast(set[str], vocabulary))
-        )
+class WordCountCalculator(ComplexityCalculator):
+    name = "Word Count"
 
-    if frequency and levels:
-        calculators["Vocabulary Level"] = ComplexityCalculator(
-            process_token=lambda token: vocabulary_level(
-                token, cast(dict[str, int], frequency), cast(list[range], levels)
-            ),
-            combine_values=max,
-        )
-    return calculators
+    def process_token(self, token: Token) -> int:
+        return 0 if token.is_punct or token.is_digit or token.is_space else 1
 
 
-def build_ratios(vocabulary: set[str] | None) -> OrderedDict[str, ComplexityRatio]:
-    """Assemble the list of ratio calculators that we'll use in this run"""
-    ratios = OrderedDict(
-        [
-            (
-                "Mean Words Per Sentence",
-                ComplexityRatio(
-                    "Word Count",
-                    "Sentence Count",
-                ),
-            ),
-            (
-                "Mean Word Length",
-                ComplexityRatio(
-                    "Cumulative Word Length",
-                    "Word Count",
-                ),
-            ),
-            (
-                "Mean Grammar Depth",
-                ComplexityRatio(
-                    "Cumulative Grammar Depth",
-                    "Sentence Count",
-                ),
-            ),
-        ]
-    )
-    if vocabulary:
-        ratios["Percent Words Known"] = ComplexityRatio(
-            "Words Known",
-            "Word Count",
-            percentage=True,
+class SentenceCountCalculator(ComplexityCalculator):
+    name = "Sentence Count"
+
+    def process_sentence(self, sentence: Span) -> int:
+        return 1
+
+
+class CumulativeWordLengthCalculator(ComplexityCalculator):
+    name = "Cumulative Word Length"
+
+    def process_token(self, token: Token):
+        return (
+            0 if token.is_punct or token.is_digit or token.is_space else len(token.text)
         )
-    return ratios
+
+
+class GrammarDepthCalculator(ComplexityCalculator):
+    name = "Cumulative Grammar Depth"
+
+    def process_sentence(self, sentence: Span):
+        return sentence_grammar_depth(sentence)
+
+
+class WordsKnownCalculator(ComplexityCalculator):
+    name = "Words Known"
+
+    def __init__(self, vocabulary):
+        self.vocabulary = vocabulary
+
+    def process_token(self, token: Token):
+        return words_known(token, cast(set[str], self.vocabulary))
+
+
+class VocabLevelCalculator(ComplexityCalculator):
+    name = "Vocabulary Level"
+
+    def __init__(self, frequency, levels):
+        self.frequency = frequency
+        self.levels = levels
+
+    # A "bar chat" is an dictionary telling us how many items there are with each value
+    # We want to know the value of the Nth percentile item
+    def percentile(self, bar_chart: dict[int, int], percent):
+        print(bar_chart)
+        total_words = sum(bar_chart.values())
+        words_at_percentile = total_words * (percent / 100)
+        running_total = 0
+        sorted_keys = sorted(bar_chart.keys())
+        for number in sorted_keys:
+            running_total = running_total + bar_chart[number]
+            if running_total > words_at_percentile:
+                return number
+
+        return bar_chart[sorted_keys[-1]] if len(sorted_keys) > 0 else 0
+
+    def process_token(self, token: Token):
+        return {vocabulary_level(token, self.frequency, self.levels): 1}
+
+    # Combine dicts to give total number of words at each level
+    def combine_values(self, dict1, dict2):
+        return {
+            key: dict1.get(key, 0) + dict2.get(key, 0)
+            for key in set(dict1) | set(dict2)
+        }
+
+    def and_finally(self, dict):
+        return self.percentile(dict, 95)
+
+    def null_value(self):
+        return {}
 
 
 # @profile
@@ -125,9 +128,35 @@ def get_book_complexity(
 ) -> OrderedDict[str, int | float]:
     """Calculate and return the complexity of a single file
     (or other iterable that produces strings)"""
-    calculators = ComplexityCalculators(
-        build_calculators(vocabulary, frequency, levels), build_ratios(vocabulary)
+    calculators = ComplexityCalculators()
+    calculators.add("Word Count", WordCountCalculator())
+    calculators.add("Sentence Count", SentenceCountCalculator())
+    calculators.add("Cumulative Grammar Depth", GrammarDepthCalculator())
+    calculators.add("Cumulative Word Length", CumulativeWordLengthCalculator())
+
+    if vocabulary:
+        calculators.add("Words Known", WordsKnownCalculator(vocabulary))
+    if frequency and levels:
+        calculators.add("Vocab Level", VocabLevelCalculator(frequency, levels))
+
+    calculators.addRatio(
+        ComplexityRatio("Mean Words Per Sentence", "Word Count", "Sentence Count")
     )
+    calculators.addRatio(
+        ComplexityRatio("Mean Word Length", "Cumulative Word Length", "Word Count")
+    )
+    calculators.addRatio(
+        ComplexityRatio(
+            "Mean Grammar Depth", "Cumulative Grammar Depth", "Sentence Count"
+        )
+    )
+    if vocabulary:
+        calculators.addRatio(
+            ComplexityRatio(
+                "Percent Words Known", "Words Known", "Word Count"
+            ).as_percentage()
+        )
+
     docs = generate_docs(nlp, inputfile)
     results = calculators.get_results(docs)
     for k in [k for k in results.keys() if k.startswith("Cumulative")]:
@@ -183,11 +212,11 @@ def frequencies_from_csv(frequencycsv) -> dict[str, int]:
 
 
 levels = [
-    range(0, 600),
-    range(600, 1200),
-    range(1200, 2500),
-    range(2500, 5000),
+    range(0, 1000),
+    range(1000, 2000),
+    range(2000, 5000),
     range(5000, 10000),
+    range(10000, 20000),
     range(20000, 99999999),
 ]
 
@@ -213,7 +242,7 @@ def get_books_complexity(
     outputfilename: str,
 ):
     """Calculate the complexity of all text files in a folder, and
-    output a CSV with one line per text file"""
+    output a jsonl file with one line per text file"""
     files = glob.glob(inputfolder + "/**/*.txt", recursive=True)
     with alive_progress.alive_bar(len(files), bar="bubbles", spinner="classic") as bar:
         nlp = make_nlp(pipeline)
