@@ -29,6 +29,7 @@ setup: requirements.txt $(VENV_TARGET)
 	$(PIP) install -r requirements.txt
 	$(PIP) install ruff
 	$(PIP) install mypy
+	$(PIP) install pytest-testmon
 	$(PIP) install parameterized
 	$(PIP) install line_profiler
 	$(PIP) install pytest
@@ -58,6 +59,9 @@ lint-github:
 test: 
 	$(PYTEST) --cov=src --cov-report=xml
 
+testprofile:
+	hyperfine "make test" --export-asciidoc test_timing.txt -i
+	
 profile:
 	$(PYTHON) -m kernprof -lz .\test\call_book_complexity.py 
 	mv call_book_complexity.py.lprof .\profiler

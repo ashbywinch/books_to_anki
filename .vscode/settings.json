@@ -1,19 +1,10 @@
 {
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
+    "python.testing.autoTestDiscoverOnSaveEnabled": true,
     "testing.showCoverageInExplorer": true,
     
     "activestate.promptRuntimeCreation": false,
 
-    "runItOn": {
-        "commands": [
-            {
-                "match": "\\.py$",
-                "isAsync": true,
-                "isShellCommand": false,
-                "cmd": "testing.runAll"
-            },
-        ],
-    },
     "git.pruneOnFetch": true
 }

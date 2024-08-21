@@ -41,9 +41,6 @@ class ComplexityCalculator:
     def null_value(self):
         return 0
 
-    def __truediv__(self, other):
-        return ComplexityRatio(self, other, False)
-
 
 @dataclass
 class ComplexityRatio:
