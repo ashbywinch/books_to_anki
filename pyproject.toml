@@ -36,7 +36,7 @@ source = ["src/"]
 
 [tool.pytest.ini_options]
 #addopts = "--cov=src --cov-report=xml --ignore=output --ignore=data --ignore=__pycache__"
-addopts = "--ignore=output --ignore=data --ignore=__pycache__"
+testpaths = [ "test/src" ]
 
 
 [project.scripts]

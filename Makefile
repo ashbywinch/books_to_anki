@@ -58,6 +58,9 @@ lint-github:
 test: 
 	$(PYTEST) --cov=src --cov-report=xml
 
+testprofile:
+	hyperfine "make test" --export-asciidoc test_timing.txt -i
+	
 profile:
 	$(PYTHON) -m kernprof -lz .\test\call_book_complexity.py 
 	mv call_book_complexity.py.lprof .\profiler
