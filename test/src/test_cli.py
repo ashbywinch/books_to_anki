@@ -1,25 +1,13 @@
-from pathlib import Path
-import shutil
-import unittest
 import subprocess
 from sys import platform
-from parameterized import parameterized  # type: ignore
+import pytest  # type: ignore
 
 
-class TestClis(unittest.TestCase):
+class TestClis:
     """Tests for book_complexity module"""
 
-    testOutput = Path("test/output/")
-
-    def setUp(self):
-        
-        if self.testOutput.exists():
-            shutil.rmtree(self.testOutput)
-            
-        self.testOutput.mkdir(exist_ok=True)
-
-
-    @parameterized.expand(
+    @pytest.mark.parametrize(
+        "source,translate,sink",
         [
             ["text", "dummy", "anki"],
             ["folder", "dummy", "anki"],
@@ -27,13 +15,9 @@ class TestClis(unittest.TestCase):
             ["text", "dummy", "jsonfile"],
             ["folder", "dummy", "jsonfile"],
             ["jsonfile", "dummy", "jsonfile"],
-        ]
+        ],
     )
-
-
-    def test_book_to_flashcard(
-        self, source: str = "text", translate: str = "dummy", sink: str = "jsonl", roundtrip: bool = True
-    ):
+    def test_book_to_flashcard(self, source: str, translate: str, sink: str, tmp_path):
         params = []
         if source == "text":
             params.extend(["from-text", "test/data/dummy_books/dummy_book.txt"])
@@ -42,7 +26,7 @@ class TestClis(unittest.TestCase):
         elif source == "jsonfile":
             params.extend(["from-jsonl", "test/data/test.jsonl"])
         else:
-            self.fail(f"Unknown source {source}")
+            pytest.fail(f"Unknown source {source}")
 
         if source != "jsonfile":
             params.extend(["pipeline", "--maxfieldlen", "50", "en_core_web_sm"])
@@ -50,19 +34,16 @@ class TestClis(unittest.TestCase):
         if translate == "dummy":
             params.append("dummy-translate")
         elif translate:
-            self.fail()
+            pytest.fail()
 
-        Path("test/output").mkdir(parents=True, exist_ok=True)
         if sink == "sidebyside":
-            params.extend(["to-sidebyside", "--fontsize", "12", "test/output"])
+            params.extend(["to-sidebyside", "--fontsize", "12", tmp_path])
         elif sink == "anki":
-            params.extend(["to-anki", "--fontsize", "12", "test/output/anki.apkg"])
+            params.extend(["to-anki", "--fontsize", "12", tmp_path / "anki.apkg"])
         elif sink == "jsonfile":
-            params.extend(["to-jsonl", "test/output/output.jsonl"])
+            params.extend(["to-jsonl", tmp_path / "output.jsonl"])
         else:
-            self.fail(f"Unknown sink: {sink}")
-
-        print(" ".join(params))
+            pytest.fail(f"Unknown sink: {sink}")
 
         bin = ".env/Scripts" if platform == "win32" else ".env/bin"
         result = subprocess.run(
@@ -70,5 +51,4 @@ class TestClis(unittest.TestCase):
             capture_output=True,
             text=True,
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        
+        assert result.returncode == 0, result.stderr

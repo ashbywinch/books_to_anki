@@ -29,6 +29,7 @@ setup: requirements.txt $(VENV_TARGET)
 	$(PIP) install -r requirements.txt
 	$(PIP) install ruff
 	$(PIP) install mypy
+	$(PIP) install pytest-testmon
 	$(PIP) install parameterized
 	$(PIP) install line_profiler
 	$(PIP) install pytest

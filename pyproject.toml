@@ -35,7 +35,7 @@ where = ["src"]
 source = ["src/"]
 
 [tool.pytest.ini_options]
-#addopts = "--cov=src --cov-report=xml --ignore=output --ignore=data --ignore=__pycache__"
+addopts = "--testmon"
 testpaths = [ "test/src" ]
 
 
