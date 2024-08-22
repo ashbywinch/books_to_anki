@@ -40,4 +40,4 @@ profile:
 
 .PHONY: dist
 dist:
-	uv run build
+	uv run pyproject-build
