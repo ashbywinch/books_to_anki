@@ -21,14 +21,14 @@ clean:
 	rm -rf .venv
 
 lint: 
-	ruff check .
+	uv run ruff check .
 	
 lint-github: 
-	ruff check . --output-format=github
+	uv run ruff check . --output-format=github
 
 .PHONY: test
 test: 
-	pytest --cov=src --cov-report=xml
+	uv run pytest --cov=src --cov-report=xml
 
 testprofile:
 	uvx hyperfine "make test" --export-asciidoc test_timing.txt -i
