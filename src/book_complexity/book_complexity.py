@@ -2,7 +2,8 @@
 
 import glob
 from pathlib import Path
-from typing import OrderedDict, TextIO, cast
+from line_profiler import profile
+from typing import Any, Optional, OrderedDict, TextIO, cast
 import orjsonl as jsonl
 from spacy.tokens import Token, Span
 
@@ -78,10 +79,9 @@ class VocabLevelCalculator(ComplexityCalculator):
         self.frequency = frequency
         self.levels = levels
 
-    # A "bar chat" is an dictionary telling us how many items there are with each value
+    # A "bar chart" is a dictionary telling us how many items there are with each value
     # We want to know the value of the Nth percentile item
     def percentile(self, bar_chart: dict[int, int], percent):
-        print(bar_chart)
         total_words = sum(bar_chart.values())
         words_at_percentile = total_words * (percent / 100)
         running_total = 0
@@ -110,7 +110,7 @@ class VocabLevelCalculator(ComplexityCalculator):
         return {}
 
 
-# @profile
+@profile
 def generate_docs(nlp, inputfile):
     for line in inputfile:
         docs = nlp.pipe([line.strip()])
@@ -118,14 +118,14 @@ def generate_docs(nlp, inputfile):
             yield doc
 
 
-# @profile
+@profile
 def get_book_complexity(
     inputfile,
     nlp,
-    vocabulary: set[str] | None = None,
-    frequency: dict[str, int] | None = None,
-    levels: list[range] | None = None,
-) -> OrderedDict[str, int | float]:
+    vocabulary: Optional[set[str]] = None,
+    frequency: Optional[dict[str, int]] = None,
+    levels: Optional[list[range]] = None,
+) -> OrderedDict[str, Any]:
     """Calculate and return the complexity of a single file
     (or other iterable that produces strings)"""
     calculators = ComplexityCalculators()
