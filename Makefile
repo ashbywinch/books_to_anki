@@ -2,9 +2,9 @@ UNAME := $(shell uname) # what OS are we on?
 
 uv:
 ifneq (,$(findstring NT-5.1,$(UNAME))) # Windows
-    powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+	powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 else # Linux presumably
-    curl -LsSf https://astral.sh/uv/install.sh | sh
+	curl -LsSf https://astral.sh/uv/install.sh | sh
 endif
 
 setup: uv
