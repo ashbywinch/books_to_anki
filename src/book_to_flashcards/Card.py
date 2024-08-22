@@ -8,4 +8,4 @@ class Card:
     filename: str
     index_in_file: int
     text: str
-    translation: str | None
+    translation: str

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import hashlib
 import html
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import click
 import genanki  # type: ignore
@@ -25,10 +25,10 @@ class AnkiNote:
 
     filename: str
     index_in_file: int
-    prev: str | None
+    prev: str
     current: str
-    next: str | None
-    translation: str | None
+    next: str
+    translation: str
 
 
 class BookNote(genanki.Note):
@@ -94,8 +94,8 @@ def make_deckname(filename, structure: bool):
 
 
 def add_prev_next(cards: Generator[Card, Any, Any]) -> Generator[AnkiNote, Any, Any]:
-    prev_card: Card | None = None
-    current_card: Card | None = None
+    prev_card: Optional[Card] = None
+    current_card: Optional[Card] = None
     for next_card in cards:
         if current_card:
             yield AnkiNote(
@@ -163,10 +163,12 @@ def cards_to_anki(
                 fields=[
                     str(note.index_in_file),
                     html.escape(Path(note.filename).stem),
-                    html.escape(note.prev) if note.prev else "", # type:ignore
+                    html.escape(note.prev) if note.prev else "",  # type:ignore
                     html.escape(note.current),
                     html.escape(note.next) if note.next else "",  # type:ignore
-                    html.escape(note.translation) if note.translation else "",  # type:ignore
+                    (
+                        html.escape(note.translation) if note.translation else ""
+                    ),  # type:ignore
                 ],
             )
             deck.add_note(note)

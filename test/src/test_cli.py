@@ -45,7 +45,7 @@ class TestClis:
         else:
             pytest.fail(f"Unknown sink: {sink}")
 
-        bin = ".env/Scripts" if platform == "win32" else ".env/bin"
+        bin = ".venv/Scripts" if platform == "win32" else ".venv/bin"
         result = subprocess.run(
             [f"{bin}/book-to-flashcard", *params],
             capture_output=True,

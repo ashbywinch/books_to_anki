@@ -2,11 +2,8 @@ from dataclasses import dataclass
 from functools import reduce
 from typing import Any, OrderedDict
 
-# from line_profiler import profile
+from line_profiler import profile
 from spacy.tokens import Doc, Token, Span
-
-
-Number = int | float
 
 
 @dataclass
@@ -85,12 +82,14 @@ class ComplexityCalculators:
         else:
             raise Exception(f"No calculator or ratio: {key}")
 
+    @profile
     def __get_token_values(self, token: Token) -> ComplexityResults:
         """Apply all the calculators to this token"""
         return ComplexityResults(
             [(name, c.process_token(token)) for name, c in self.calculators.items()]
         )
 
+    @profile
     def __get_sentence_values(self, sent: Span) -> ComplexityResults:
         """Apply all the sentence calculators to this sentence,
         and the token calculators to its tokens"""
@@ -104,6 +103,7 @@ class ComplexityCalculators:
         )
         return self.__merge(sentence_results, token_results)
 
+    @profile
     def __get_values(self, doc: Doc) -> ComplexityResults:
         """Apply all the calculators to this document and return the results"""
         return reduce(
@@ -118,6 +118,7 @@ class ComplexityCalculators:
             (name, c.null_value()) for name, c in self.calculators.items()
         )
 
+    @profile
     def __merge(self, x: ComplexityResults, y: ComplexityResults) -> ComplexityResults:
         """Call the combine_values function from each calculator on the corresponding values
         in two Results objects, resulting in one Results object
@@ -133,7 +134,7 @@ class ComplexityCalculators:
             ]
         )
 
-    def __get_ratio(self, ratio: ComplexityRatio, calculationResults) -> float | int:
+    def __get_ratio(self, ratio: ComplexityRatio, calculationResults) -> Any:
         numerator = calculationResults[ratio.numerator]
         denominator = calculationResults[ratio.denominator]
         result = numerator / denominator if denominator > 0 else 0
@@ -145,6 +146,7 @@ class ComplexityCalculators:
             for name, ratio in self.ratios.items()
         ]
 
+    @profile
     def get_results(self, docs) -> ComplexityResults:
         """Apply all the calculators and ratios to this doc
         and return the results"""
@@ -172,14 +174,14 @@ class ComplexityCalculators:
         )
 
 
-# @profile
+@profile
 def __grammar_depth(root_token: Token):
     """The depth of the grammatical tree, starting with root_token as the root of the tree"""
 
     return 1 + max((__grammar_depth(child) for child in root_token.children), default=0)
 
 
-# @profile
+@profile
 def sentence_grammar_depth(sent: Span) -> int:
     roots = [token for token in sent if token.dep_ == "ROOT"]
     assert len(roots) == 1
@@ -190,7 +192,7 @@ def words_known(token: Token, vocabulary: set[str]) -> int:
     return 1 if ((token.text in vocabulary) or token.is_digit) else 0
 
 
-# @profile
+@profile
 def vocabulary_level(
     token: Token, frequency: dict[str, int], levels: list[range]
 ) -> int:
