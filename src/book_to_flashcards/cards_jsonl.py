@@ -1,5 +1,6 @@
 from collections.abc import Generator
 from glob import glob
+import os
 from typing import Any
 from pathlib import Path
 import orjsonl as jsonl
@@ -20,15 +21,21 @@ def cards_to_jsonl_folder(
 ):
     cardFilename = None
     file = None
+    outputfile: Path
     try:
         for card in iterator:
             if file is None or card.filename != cardFilename:
                 if file:
-                    progress()
+                    if progress:
+                        progress()
                     file.close()
+                    if outputfile.suffixes[-1] == ".tmp":
+                        os.replace(outputfile, outputfile.stem)
                 outputfile = Path(
                     outputfolder, Path(card.filename).with_suffix(".jsonl")
                 )
+                if Path.exists(outputfile):
+                    outputfile = outputfile.with_suffix(outputfile.suffix + ".tmp")
                 outputfile.parent.mkdir(exist_ok=True, parents=True)
                 file = open(outputfile, mode="wb")
                 cardFilename = card.filename

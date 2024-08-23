@@ -62,13 +62,13 @@ def from_text(
     return processor
 
 
-@click.argument("inputfile", type=click.Path(dir_okay=False, exists=True))
+@click.argument("inputpath", type=click.Path(exists=True))
 @cli_make_flashcards.command()
 def from_jsonl(
-    inputfile,
+    inputpath,
 ):
     def processor(iterator) -> Generator[Card, Any, Any]:
-        yield from cards_from_jsonl(inputfile)
+        yield from cards_from_jsonl(inputpath)
 
     return processor
 
@@ -117,10 +117,7 @@ def to_anki(outputfile, fontsize):
     return processor
 
 
-@click.argument(
-    "outputpath",
-    type=click.Path(writable=True)
-)
+@click.argument("outputpath", type=click.Path(writable=True))
 @cli_make_flashcards.command()
 def to_jsonl(outputpath):
     def processor(iterator: Generator[Card]):
