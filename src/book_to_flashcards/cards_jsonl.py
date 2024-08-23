@@ -21,7 +21,7 @@ def cards_to_jsonl_folder(
 ):
     cardFilename = None
     file = None
-    outputfile: Path
+    outputfile: Path = Path()
     try:
         for card in iterator:
             if file is None or card.filename != cardFilename:
