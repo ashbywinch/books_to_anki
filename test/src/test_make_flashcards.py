@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest  # type: ignore
 
 
-from book_complexity.book_complexity import make_nlp
 from book_to_flashcards import (
     ReverseTextTranslator,
     cards_untranslated_from_file,
