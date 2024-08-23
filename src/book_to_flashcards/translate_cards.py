@@ -34,6 +34,10 @@ def translate_cards(cards, translator, lang):
     for chunk in chunks(cards, 200):
         # get all the translations
         lchunk = list(chunk)
+        # If they all have translations already
+        if all(card.translation for card in lchunk):
+            yield from lchunk
+
         translations = translator.translate_text(
             [card.text for card in lchunk], target_lang=lang
         )

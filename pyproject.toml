@@ -38,6 +38,7 @@ dev-dependencies= [
 	"line_profiler",
 	"pytest",
 	"pytest-cov",
+    "pyfakefs",
 	"build",
     "ru_core_news_sm @ https://github.com/explosion/spacy-models/releases/download/ru_core_news_sm-3.7.0/ru_core_news_sm-3.7.0-py3-none-any.whl",
     "en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl"

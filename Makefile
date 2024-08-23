@@ -28,7 +28,7 @@ lint-github:
 
 .PHONY: test
 test: 
-	uv run pytest --cov=src --cov-report=xml
+	uv run pytest --cov=src --cov-report=xml --no-testmon
 
 testprofile:
 	uvx hyperfine "make test" --export-asciidoc test_timing.txt -i
