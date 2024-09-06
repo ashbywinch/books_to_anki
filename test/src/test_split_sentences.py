@@ -1,6 +1,7 @@
 """Test split sentences module"""
 
 import pytest
+from book_to_flashcards.cards_jsonl import trim_filename
 from split_sentences import consolidate_spans, make_nlp, split_sentence, split_sentences, split_text
 
 
@@ -91,3 +92,14 @@ class TestSentenceSplitting:
         assert "".join([doc.text_with_ws for doc in docs]) == "".join([s.text_with_ws for s in spans ])
         spans = list(consolidate_spans(spans, None))
         assert "".join([doc.text_with_ws for doc in docs]) == "".join([s.text_with_ws for s in spans ])
+
+    def test_trim_filename(self):
+        filename = "bumledydum_2000"
+        trimmed = trim_filename(filename, '_')
+        assert trimmed == "bumledydum"
+
+    def test_trim_filename_multiple_seperators(self):
+        filename = "bumledydum_2000_foo"
+        trimmed = trim_filename(filename, '_')
+        assert trimmed == "bumledydum_2000"
+        

@@ -118,10 +118,11 @@ def to_anki(outputfile, fontsize):
 
 
 @click.argument("outputpath", type=click.Path(writable=True))
+@click.option("--trim", default="", help="Separator character in filename that will be used to discard unwanted trailing characters when generating jsonl filename")
 @cli_make_flashcards.command()
-def to_jsonl(outputpath):
+def to_jsonl(outputpath, trim):
     def processor(iterator: Generator[Card]):
-        cards_to_jsonl(iterator, outputpath, __progress)
+        cards_to_jsonl(iterator, outputpath, trim, __progress)
 
     return processor
 
