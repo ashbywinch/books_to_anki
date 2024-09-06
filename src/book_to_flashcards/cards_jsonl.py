@@ -7,6 +7,8 @@ import orjsonl as jsonl
 
 from book_to_flashcards.Card import Card
 
+def trim_filename(filename:str, separator:str) -> str:
+    return filename if separator == "" else separator.join(filename.split(separator)[:-1])
 
 def cards_to_jsonl_file(
     iterator: Generator[Card, Any, Any], outputfile: str, progress=None
@@ -17,7 +19,7 @@ def cards_to_jsonl_file(
 
 
 def cards_to_jsonl_folder(
-    iterator: Generator[Card, Any, Any], outputfolder, progress=None
+    iterator: Generator[Card, Any, Any], outputfolder, separator:str = "", progress=None
 ):
     cardFilename = None
     file = None
@@ -32,7 +34,7 @@ def cards_to_jsonl_folder(
                     if outputfile.suffixes[-1] == ".tmp":
                         os.replace(outputfile, Path(outputfile.parent, outputfile.stem))
                 outputfile = Path(
-                    outputfolder, Path(card.filename).with_suffix(".jsonl")
+                    outputfolder, Path(trim_filename(card.filename, separator)).with_suffix(".jsonl")
                 )
                 if Path.exists(outputfile):
                     outputfile = outputfile.with_suffix(outputfile.suffix + ".tmp")
@@ -52,12 +54,12 @@ def cards_to_jsonl_folder(
         progress()
 
 
-def cards_to_jsonl(cards, outputfileorfolder, progress=None):
+def cards_to_jsonl(cards, outputfileorfolder, separator: str="", progress=None):
     path = Path(outputfileorfolder)
     if path.is_file():
         cards_to_jsonl_file(cards, outputfileorfolder, progress)
     else:
-        cards_to_jsonl_folder(cards, outputfileorfolder, progress)
+        cards_to_jsonl_folder(cards, outputfileorfolder, separator, progress)
 
 
 def cards_from_jsonl_file(inputfile) -> Generator[Card, Any, Any]:

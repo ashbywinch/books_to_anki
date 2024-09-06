@@ -16,5 +16,6 @@ if __name__ == "__main__":
     outputfolder.mkdir(exist_ok=True)
     cards_to_jsonl(
         cards,
+        separator="_",
         outputfileorfolder = outputfolder
     )
