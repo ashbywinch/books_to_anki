@@ -8,7 +8,7 @@ import orjsonl as jsonl
 from book_to_flashcards.Card import Card
 
 def trim_filename(filename:str, separator:str) -> str:
-    return separator.join(filename.split(separator)[:-1])
+    return filename if separator == "" else separator.join(filename.split(separator)[:-1])
 
 def cards_to_jsonl_file(
     iterator: Generator[Card, Any, Any], outputfile: str, progress=None
