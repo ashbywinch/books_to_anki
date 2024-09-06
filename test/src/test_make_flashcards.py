@@ -41,7 +41,7 @@ def test_cards(fs, inputfolder):
             cards_untranslated_from_file(f, pipeline="en_core_web_sm", maxfieldlen=30)
         )
     fs.resume()
-    assert len(cards) == 22
+    assert len(cards) == 23
     yield cards
 
 
@@ -59,7 +59,7 @@ class TestMakingCardsFromFile:
         for card in test_cards_translated:
             # check that every card has been translated
             assert card.translation == card.text[::-1]
-        assert len(test_cards_translated) == 22
+        assert len(test_cards_translated) == 23
 
     def test_generate_flashcards_not_translated(self, test_cards):
         """Test that we can get a container of card objects from the file without translations"""
@@ -74,7 +74,7 @@ class TestMakingCardsFromFile:
         ]
         for card in cards_single_book[1:]:
             assert card.index_in_file > 0
-        assert len(cards_single_book) == 20
+        assert len(cards_single_book) == 21
 
     def test_generate_anki_package_translate(self, test_cards_translated, outputfolder):
         """Don't know how to validate an anki package, but at least we can check
