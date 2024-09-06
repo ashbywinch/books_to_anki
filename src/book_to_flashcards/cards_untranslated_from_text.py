@@ -1,11 +1,19 @@
+import glob
 from pathlib import Path
 from book_to_flashcards.Card import Card
-from split_sentences import make_nlp, split_sentence
+from split_sentences import make_nlp, split_text
 
 
 from collections.abc import Generator
 from typing import Any
 
+def cards_untranslated_from_folder(
+    inputfolder, pipeline, maxfieldlen
+) -> Generator[Card, Any, Any]:
+    for filename in glob.glob(inputfolder + "/**/*.txt", recursive=True):
+        yield from cards_untranslated_from_file(
+            inputfile=filename, pipeline=pipeline, maxfieldlen=maxfieldlen
+        )
 
 def cards_untranslated_from_file(
     inputfile, pipeline, maxfieldlen
@@ -16,21 +24,12 @@ def cards_untranslated_from_file(
     This is much quicker and avoids 'using up' a DeepL API key if you don't need it"""
     nlp = make_nlp(pipeline)
 
-    doc_base = 0
-    
     file = open(inputfile, mode="r", encoding="utf-8")
     docs = nlp.pipe(file)
 
-    for doc in docs:
-        for s in doc.sents:
-            for span in split_sentence(doc, s, max_span_length=maxfieldlen):
-                doc_len = span.end_char
-                
-                yield Card(
-                    filename = Path(inputfile).as_posix(),
-                    index_in_file= doc_base + s.start_char + span.start_char,
-                    text = span.text,
-                    translation = ""
-                )
-                
-        doc_base = doc_base + doc_len
+    for span in split_text(docs, max_span_length=maxfieldlen):
+        yield Card(
+            filename = Path(inputfile).as_posix(),
+            index_in_file= span.start,
+            text = span.text_with_ws,
+        )

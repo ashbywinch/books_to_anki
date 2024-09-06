@@ -8,4 +8,9 @@ class Card:
     filename: str
     index_in_file: int
     text: str
+    translation: str = ""
+
+@dataclass
+class Translation:
+    card: Card
     translation: str

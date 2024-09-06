@@ -30,7 +30,7 @@ def cards_to_jsonl_folder(
                         progress()
                     file.close()
                     if outputfile.suffixes[-1] == ".tmp":
-                        os.replace(outputfile, outputfile.stem)
+                        os.replace(outputfile, Path(outputfile.parent, outputfile.stem))
                 outputfile = Path(
                     outputfolder, Path(card.filename).with_suffix(".jsonl")
                 )
@@ -41,6 +41,10 @@ def cards_to_jsonl_folder(
                 cardFilename = card.filename
 
             jsonl.append(outputfile, card)
+        if file:
+            file.close()
+            if outputfile.suffixes[-1] == ".tmp":
+                os.replace(outputfile, Path(outputfile.parent, outputfile.stem))
     finally:
         if file:
             file.close()
@@ -48,12 +52,12 @@ def cards_to_jsonl_folder(
         progress()
 
 
-def cards_to_jsonl(cards, inputfileorfolder, progress=None):
-    path = Path(inputfileorfolder)
+def cards_to_jsonl(cards, outputfileorfolder, progress=None):
+    path = Path(outputfileorfolder)
     if path.is_file():
-        cards_to_jsonl_file(cards, inputfileorfolder, progress)
+        cards_to_jsonl_file(cards, outputfileorfolder, progress)
     else:
-        cards_to_jsonl_folder(cards, inputfileorfolder, progress)
+        cards_to_jsonl_folder(cards, outputfileorfolder, progress)
 
 
 def cards_from_jsonl_file(inputfile) -> Generator[Card, Any, Any]:

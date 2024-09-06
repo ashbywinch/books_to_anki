@@ -16,7 +16,7 @@ from book_to_flashcards.cards_jsonl import cards_from_jsonl, cards_to_jsonl
 
 from .Card import Card
 from .cards_to_anki import cards_to_anki
-from .cards_untranslated_from_file import cards_untranslated_from_file
+from .cards_untranslated_from_text import cards_untranslated_from_file
 from .translate_cards import ReverseTextTranslator, translate_cards
 
 
