@@ -6,7 +6,6 @@ from collections.abc import Generator
 from dataclasses import dataclass
 import hashlib
 import html
-from pathlib import Path
 from typing import Any, Callable, Optional
 
 import click

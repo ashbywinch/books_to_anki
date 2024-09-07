@@ -68,7 +68,6 @@ class TestMakingCardsFromFile:
             assert card.translation == ""
 
     def test_index_in_file(self, test_cards, inputfolder):
-        dummy_book = inputfolder / "dummy_book.txt"
         cards_single_book = [
             card for card in test_cards if card.title == "dummy_book"
         ]

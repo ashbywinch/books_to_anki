@@ -4,7 +4,7 @@ from book_to_flashcards.Card import Card
 from split_sentences import make_nlp, split_text
 
 from collections.abc import Generator
-from typing import Any, Iterable
+from typing import Any
 
 def trim_title(title:str, separator:str) -> str:
     return title if separator == "" else separator.join(title.split(separator)[:-1])
