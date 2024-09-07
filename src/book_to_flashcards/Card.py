@@ -3,10 +3,12 @@ from dataclasses import dataclass
 
 @dataclass
 class Card:
-    """Representing a single flash card (or 'Note' in Anki)"""
+    """Representing a chunk of text from a book"""
 
-    filename: str
-    index_in_file: int
+    title: str
+    author: str
+    start: int
+    end: int
     text: str
     translation: str = ""
 

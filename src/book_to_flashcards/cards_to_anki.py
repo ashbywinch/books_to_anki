@@ -23,8 +23,10 @@ import book_to_flashcards.resources
 class AnkiNote:
     """Representing a single flash card (or 'Note' in Anki)"""
 
-    filename: str
-    index_in_file: int
+    title: str
+    author: str
+    start: int
+    end: int
     prev: str
     current: str
     next: str
@@ -60,8 +62,10 @@ def make_model(font_size: int) -> genanki.Model:
         1356306641,
         "Book Snippet",
         fields=[
-            {"name": "index_in_file"},
-            {"name": "file"},
+            {"name": "author"},
+            {"name": "title"},
+            {"name": "start"},
+            {"name": "end"},
             {"name": "prev"},
             {"name": "current"},
             {"name": "next"},
@@ -82,15 +86,13 @@ def make_model(font_size: int) -> genanki.Model:
     )
 
 
-def make_deckname(filename, structure: bool):
+def make_deckname(author, title, structure: bool):
     """Name this Anki deck, either just the filename (without extension)
     or else a nested structure matching the input folder structure"""
     if structure:
-        directoryelements = list(Path(filename).parts)[0:-1]  # chop off the filename
-        directoryelements.append(Path(filename).stem)
-        return "::".join(directoryelements)
+        return "::".join(["books", author, title])
 
-    return Path(filename).stem
+    return title
 
 
 def add_prev_next(cards: Generator[Card, Any, Any]) -> Generator[AnkiNote, Any, Any]:
@@ -99,15 +101,17 @@ def add_prev_next(cards: Generator[Card, Any, Any]) -> Generator[AnkiNote, Any, 
     for next_card in cards:
         if current_card:
             yield AnkiNote(
-                current_card.filename,
-                current_card.index_in_file,
+                current_card.title,
+                current_card.author,
+                current_card.start,
+                current_card.end,
                 (
                     prev_card.text
-                    if (prev_card and prev_card.filename == current_card.filename)
+                    if (prev_card and prev_card.title == current_card.title and prev_card.author == current_card.author)
                     else ""
                 ),
                 current_card.text,
-                next_card.text if (next_card.filename == current_card.filename) else "",
+                next_card.text if (next_card.title == current_card.title and next_card.author == current_card.author) else "",
                 current_card.translation,
             )
         prev_card = current_card
@@ -115,8 +119,10 @@ def add_prev_next(cards: Generator[Card, Any, Any]) -> Generator[AnkiNote, Any, 
 
     if current_card:
         yield AnkiNote(
-            current_card.filename,
-            current_card.index_in_file,
+            current_card.title,
+            current_card.author,
+            current_card.start,
+            current_card.end,
             prev_card.text if prev_card else "",
             current_card.text,
             "",
@@ -146,7 +152,7 @@ def cards_to_anki(
         for note in add_prev_next(cards):
             # if we've hit a new filename after processing some cards, we need to close the deck
             # and make a new one
-            deckname = make_deckname(note.filename, structure)
+            deckname = make_deckname(note.author, note.title, structure)
             if deck is None or deck.name != deckname:
                 if deck:
                     decks.append(deck)
@@ -161,8 +167,10 @@ def cards_to_anki(
             note = BookNote(
                 model=model,
                 fields=[
-                    str(note.index_in_file),
-                    html.escape(Path(note.filename).stem),
+                    html.escape(note.author),
+                    html.escape(note.title),
+                    str(note.start),
+                    str(note.end),
                     html.escape(note.prev) if note.prev else "",  # type:ignore
                     html.escape(note.current),
                     html.escape(note.next) if note.next else "",  # type:ignore
