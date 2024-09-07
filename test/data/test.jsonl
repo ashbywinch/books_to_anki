@@ -1,13 +1,13 @@
-{"filename":"test/data/dummy_books/dummy_book.txt","index_in_file":0,"text":"This is a text file","translation":"elif txet a si sihT"}
-{"filename":"test/data/dummy_books/dummy_book.txt","index_in_file":20,"text":"that contains a \"book\" for testing purposes.","translation":".sesoprup gnitset rof \"koob\" a sniatnoc taht"}
-{"filename":"test/data/dummy_books/dummy_book.txt","index_in_file":65,"text":"Some of the lines and sentences are quite long and","translation":"dna gnol etiuq era secnetnes dna senil eht fo emoS"}
-{"filename":"test/data/dummy_books/dummy_book.txt","index_in_file":116,"text":"might need to be broken up to put on flashcards,","translation":",sdrachsalf no tup ot pu nekorb eb ot deen thgim"}
-{"filename":"test/data/dummy_books/dummy_book.txt","index_in_file":165,"text":"because they use a large number of words","translation":"sdrow fo rebmun egral a esu yeht esuaceb"}
-{"filename":"test/data/dummy_books/dummy_book.txt","index_in_file":206,"text":"without putting a full stop in between any of them,","translation":",meht fo yna neewteb ni pots lluf a gnittup tuohtiw"}
-{"filename":"test/data/dummy_books/dummy_book.txt","index_in_file":258,"text":"perhaps in","translation":"ni spahrep"}
-{"filename":"test/data/dummy_books/dummy_book.txt","index_in_file":269,"text":"order to emulate wise literary authors who seem","translation":"mees ohw srohtua yraretil esiw etalume ot redro"}
-{"filename":"test/data/dummy_books/dummy_book.txt","index_in_file":317,"text":"to gravitate towards excessively long sentences,","translation":",secnetnes gnol ylevissecxe sdrawot etativarg ot"}
-{"filename":"test/data/dummy_books/dummy_book.txt","index_in_file":366,"text":"making","translation":"gnikam"}
-{"filename":"test/data/dummy_books/dummy_book.txt","index_in_file":373,"text":"it quite hard for non native speakers to read","translation":"daer ot srekaeps evitan non rof drah etiuq ti"}
-{"filename":"test/data/dummy_books/dummy_book.txt","index_in_file":419,"text":"their work (or even native speakers,","translation":",srekaeps evitan neve ro( krow rieht"}
-{"filename":"test/data/dummy_books/dummy_book.txt","index_in_file":456,"text":"for that matter).","translation":".)rettam taht rof"}
+{"author":"dummy_books", "title":"dummy_book","start":0,"end": 20, "text":"This is a text file","translation":"elif txet a si sihT"}
+{"author":"dummy_books", "title":"dummy_book","start":20,"end": 65, "text":"that contains a \"book\" for testing purposes.","translation":".sesoprup gnitset rof \"koob\" a sniatnoc taht"}
+{"author":"dummy_books", "title":"dummy_book","start":65,"end": 116, "text":"Some of the lines and sentences are quite long and","translation":"dna gnol etiuq era secnetnes dna senil eht fo emoS"}
+{"author":"dummy_books", "title":"dummy_book","start":116,"end": 165, "text":"might need to be broken up to put on flashcards,","translation":",sdrachsalf no tup ot pu nekorb eb ot deen thgim"}
+{"author":"dummy_books", "title":"dummy_book","start":165,"end": 206, "text":"because they use a large number of words","translation":"sdrow fo rebmun egral a esu yeht esuaceb"}
+{"author":"dummy_books", "title":"dummy_book","start":206,"end": 258, "text":"without putting a full stop in between any of them,","translation":",meht fo yna neewteb ni pots lluf a gnittup tuohtiw"}
+{"author":"dummy_books", "title":"dummy_book","start":258,"end": 269, "text":"perhaps in","translation":"ni spahrep"}
+{"author":"dummy_books", "title":"dummy_book","start":269,"end": 317, "text":"order to emulate wise literary authors who seem","translation":"mees ohw srohtua yraretil esiw etalume ot redro"}
+{"author":"dummy_books", "title":"dummy_book","start":317,"end": 366, "text":"to gravitate towards excessively long sentences,","translation":",secnetnes gnol ylevissecxe sdrawot etativarg ot"}
+{"author":"dummy_books", "title":"dummy_book","start":366,"end": 373, "text":"making","translation":"gnikam"}
+{"author":"dummy_books", "title":"dummy_book","start":373,"end": 419, "text":"it quite hard for non native speakers to read","translation":"daer ot srekaeps evitan non rof drah etiuq ti"}
+{"author":"dummy_books", "title":"dummy_book","start":419,"end": 456, "text":"their work (or even native speakers,","translation":",srekaeps evitan neve ro( krow rieht"}
+{"author":"dummy_books", "title":"dummy_book","start":456,"end": 473, "text":"for that matter).","translation":".)rettam taht rof"}

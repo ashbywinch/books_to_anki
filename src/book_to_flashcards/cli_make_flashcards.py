@@ -16,7 +16,7 @@ from book_to_flashcards.cards_jsonl import cards_from_jsonl, cards_to_jsonl
 
 from .Card import Card
 from .cards_to_anki import cards_to_anki
-from .cards_untranslated_from_text import cards_untranslated_from_file
+from .cards_untranslated_from_text import card_trim_title, cards_untranslated_from_file, cards_skip_first_line_if_author
 from .translate_cards import ReverseTextTranslator, translate_cards
 
 
@@ -89,6 +89,22 @@ def from_folder(inputfolder):
     def processor(iterator) -> Generator[str, Any, Any]:
         for fn in files:
             yield fn
+
+    return processor
+
+@cli_make_flashcards.command()
+def skip_first_line_if_author():
+    def processor(iterator) -> Generator[Card, Any, Any]:
+        yield from cards_skip_first_line_if_author(iterator)
+
+    return processor
+
+@click.argument("separator", default="")
+@cli_make_flashcards.command()
+def remove_title_crap_after(separator:str):
+    def processor(iterator) -> Generator[Card, Any, Any]:
+        for card in iterator:
+            yield card_trim_title(card.title, separator)
 
     return processor
 

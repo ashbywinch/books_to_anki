@@ -68,12 +68,11 @@ class TestMakingCardsFromFile:
             assert card.translation == ""
 
     def test_index_in_file(self, test_cards, inputfolder):
-        dummy_book = inputfolder / "dummy_book.txt"
         cards_single_book = [
-            card for card in test_cards if Path(card.filename) == dummy_book
+            card for card in test_cards if card.title == "dummy_book"
         ]
         for card in cards_single_book[1:]:
-            assert card.index_in_file > 0
+            assert card.start > 0
         assert len(cards_single_book) == 21
 
     def test_generate_anki_package_translate(self, test_cards_translated, outputfolder):
