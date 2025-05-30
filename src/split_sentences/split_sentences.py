@@ -230,17 +230,26 @@ def split_from_text(docs: Iterable[Doc], max_span_length: int) -> Generator[Cros
         CrossDocSpan objects representing text segments with global offsets.
     """
     doc_base = 0
-    # doc_len = 0 # Removed initialization for doc_len
 
     for doc in docs:
+        doc_len = 0
         for span in split_sentences(doc, max_span_length=max_span_length):
             doc_len = span.end_char # type: ignore
-            
+
             yield CrossDocSpan(
                 start = doc_base + span.start_char,
                 end = doc_base + span.end_char,
                 text_with_ws = span.text_with_ws,
             )
+        
+        # Confirms that the end of the last processed span aligns with the total length of doc.text_with_ws.
+        assert doc_len == len(doc.text_with_ws), \
+            f"Text coverage discrepancy in split_from_text: \
+Processed spans for the current doc appear to cover up to character offset {doc_len}, \
+but the document's (doc.text_with_ws) total length is {len(doc.text_with_ws)}. \
+This indicates either trailing text in the doc not covered by spans, or spans extending beyond the doc (unlikely). \
+Doc preview (up to 100 chars): '{doc.text_with_ws[:100]}...'"
+
         doc_base = doc_base + doc_len
 
 def split_text(docs: Iterable[Doc], max_span_length: int) -> Generator[CrossDocSpan, Any, Any]:
