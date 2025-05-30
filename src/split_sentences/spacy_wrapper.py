@@ -43,7 +43,7 @@ def tidy_doc_punctuation(doc: Doc) -> Doc:
     with doc.retokenize() as retokenizer:
         for span, tag, lemma, ent_type in spans:
             attrs = {"tag": tag, "lemma": lemma, "ent_type": ent_type}
-            retokenizer.merge(span, attrs=attrs)
+            retokenizer.merge(span, attrs=attrs) # type: ignore[arg-type]
     return doc
 
 def make_nlp(pipeline: str) -> Language:
