@@ -346,14 +346,14 @@ levels = {
     "B1": range(2000, 5000),
     "B2": range(5000, 10000),
     "C1": range(10000, 20000),
-    "C2": range(20000, 99999999), # Using a large upper bound for C2
+    "C2": range(20000, 99999999),
 }
 
 def get_books_complexity(
     inputfolder: str,
     pipeline: str,
-    knownmorphs_file_arg: Optional[BinaryIO], # Renamed to avoid conflict with variable
-    frequencycsv_file_arg: Optional[BinaryIO], # Renamed to avoid conflict with variable
+    knownmorphs_file: Optional[BinaryIO], 
+    frequencycsv_file: Optional[BinaryIO],
     outputfilename: str,
     remove_title_suffix_after: Optional[str] = None,
     small_sample_size_cutoff: int = DEFAULT_SMALL_SAMPLE_SIZE_CUTOFF,
@@ -366,9 +366,9 @@ def get_books_complexity(
     Args:
         inputfolder: Path to the folder containing .txt files (searched recursively).
         pipeline: Name of the spaCy pipeline to use.
-        knownmorphs_file_arg: Optional binary file object for the known morphs CSV.
-        frequencycsv_file_arg: Optional binary file object for the word frequency CSV.
-        outputfilename: Path to the output JSONL file. The file must not already exist.
+        knownmorphs_file: Optional binary file object for the known morphs CSV.
+        frequencycsv_file: Optional binary file object for the word frequency CSV.
+        outputfilename: Path to the output JSONL file. Throws an error if the file already exists.
         remove_title_suffix_after: Optional string to trim from book titles derived from filenames.
         small_sample_size_cutoff: Word count cutoff for vocabulary level calculation.
 
@@ -383,11 +383,11 @@ def get_books_complexity(
 
     with alive_progress.alive_bar(len(files), bar="bubbles", spinner="classic") as bar:
         nlp = make_nlp(pipeline)
-        known_morph_list = morphs_from_csv(knownmorphs_file_arg) if knownmorphs_file_arg else None
+        known_morph_list = morphs_from_csv(knownmorphs_file) if knownmorphs_file else None
         
         vocab_levels_instance: Optional[VocabLevels] = None
-        if frequencycsv_file_arg:
-            frequencies = frequencies_from_csv(frequencycsv_file_arg)
+        if frequencycsv_file:
+            frequencies = frequencies_from_csv(frequencycsv_file)
             vocab_levels_instance = VocabLevels(frequencies, levels)
             
         data = get_complexities(

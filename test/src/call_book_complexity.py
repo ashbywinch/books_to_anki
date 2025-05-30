@@ -13,8 +13,8 @@ if __name__ == "__main__":
         get_books_complexity(
             inputfolder="data/books",
             pipeline="ru_core_news_sm",
-            knownmorphs=vocabulary,
-            frequencycsv=frequencycsv,
+            knownmorphs_file=vocabulary,
+            frequencycsv_file=frequencycsv,
             outputfilename="complexity.jsonl",
             remove_title_suffix_after="_",
             small_sample_size_cutoff=250
