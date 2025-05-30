@@ -10,6 +10,8 @@ from book_complexity.book_complexity import (
 )
 import pytest
 
+from book_complexity.vocabulary_levels import VocabLevels
+
 
 @pytest.fixture()
 def ru_nlp():
@@ -56,38 +58,39 @@ class TestBookComplexityOnMultipleLongerStrings:
         assert complexity["Percent Words Known"] == 50
 
     def simple_test_vocabulary_level(self):
-        frequency = {"peas": 500, "likes": 20}
+        frequencies = {"peas": 500, "likes": 20}
         levels = [range(0, 400), range(400, 1000)]
         calculators = ComplexityCalculators()
-        calculators.add(VocabLevelCalculator(frequency, levels))
+        calculators.add(VocabLevelCalculator(VocabLevels(frequencies, levels)))
 
         calculators.get_results()
 
     def test_vocabulary_level_basic(self, en_nlp):
-        frequency = {"peas": 500, "likes": 20}
-        levels = [range(0, 400), range(400, 1000)]
+        frequencies = {"peas": 500, "likes": 20}
+        levels = { 'A1':range(0, 400), 'A2':range(400, 1000)}
         teststrings = ["Bob likes green peas"]
 
         complexity = get_book_complexity(
-            teststrings, en_nlp, frequency=frequency, levels=levels
+            teststrings, en_nlp, VocabLevels(frequencies=frequencies, levels=levels)
         )
 
-        assert complexity["Vocab Level"] == 1
+        assert complexity["Vocab Level"] is None
 
     def test_vocabulary_level_percentile(self, en_nlp):
-        frequency = {"peas": 500, "likes": 20, "supercalifragilistic": 2000}
-        levels = [range(0, 400), range(400, 1000), range(1000, 5000)]
+        frequencies = {"peas": 500, "likes": 20, "supercalifragilistic": 2000}
+        levels = { 'A1':range(0, 400), 'A2':range(400, 1000), 'B1': range(1000, 5000)}
+
         teststrings = ["Bob likes green peas " * 5 + " supercalifragilistic"]
 
         complexity = get_book_complexity(
-            teststrings, en_nlp, frequency=frequency, levels=levels
+            teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels)
         )
         # Should still only be 1 despite a low frequency word sneaking in
-        assert complexity["Vocab Level"] == 1
+        assert complexity["Vocab Level"] == 'A2'
 
     def test_complexities(self, en_nlp):
         files = glob("test/data/dummy_books/**/*.txt", recursive=True)
-        complexities = list(get_complexities(files, nlp=en_nlp))
+        complexities = list(get_complexities(files, nlp=en_nlp, vocab=None, known_morph_list=None))
         assert len(list(complexities)) == 2
         assert complexities[0]["title"] == "dummy_book"
         assert complexities[0]["author"] == "dummy_books"

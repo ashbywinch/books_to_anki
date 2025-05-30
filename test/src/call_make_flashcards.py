@@ -1,7 +1,7 @@
 from pathlib import Path
 from book_to_flashcards import cards_untranslated_from_folder
-from book_to_flashcards import cards_to_jsonl
-from book_to_flashcards.cards_untranslated_from_text import card_trim_title, cards_skip_first_line_if_author
+from book_to_flashcards import cards_to_jsonl, card_trim_title
+from book_to_flashcards.cards_untranslated_from_text import cards_skip_first_line_if_author
 
 # One-shot for generating a package from a big folder of books
 # Useful for testing/profiling

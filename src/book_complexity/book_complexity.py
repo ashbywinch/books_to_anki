@@ -15,7 +15,6 @@ from book_complexity.ComplexityCalculators import (
     ComplexityCalculators,
     ComplexityRatio,
     sentence_grammar_depth,
-    vocabulary_level,
     words_known,
 )
 import spacy
@@ -25,6 +24,9 @@ import alive_progress  # type: ignore
 import unicodecsv  # type: ignore
 
 from tabulate import tabulate
+
+from book_complexity.vocabulary_levels import VocabLevelCalculator, VocabLevels
+from book_to_flashcards import trim_title
 
 
 def make_nlp(pipeline: str):
@@ -72,44 +74,6 @@ class WordsKnownCalculator(ComplexityCalculator):
         return words_known(token, cast(set[str], self.vocabulary))
 
 
-class VocabLevelCalculator(ComplexityCalculator):
-    name = "Vocabulary Level"
-
-    def __init__(self, frequency, levels):
-        self.frequency = frequency
-        self.levels = levels
-
-    # A "bar chart" is a dictionary telling us how many items there are with each value
-    # We want to know the value of the Nth percentile item
-    def percentile(self, bar_chart: dict[int, int], percent):
-        total_words = sum(bar_chart.values())
-        words_at_percentile = total_words * (percent / 100)
-        running_total = 0
-        sorted_keys = sorted(bar_chart.keys())
-        for number in sorted_keys:
-            running_total = running_total + bar_chart[number]
-            if running_total > words_at_percentile:
-                return number
-
-        return bar_chart[sorted_keys[-1]] if len(sorted_keys) > 0 else 0
-
-    def process_token(self, token: Token):
-        return {vocabulary_level(token, self.frequency, self.levels): 1}
-
-    # Combine dicts to give total number of words at each level
-    def combine_values(self, dict1, dict2):
-        return {
-            key: dict1.get(key, 0) + dict2.get(key, 0)
-            for key in set(dict1) | set(dict2)
-        }
-
-    def and_finally(self, dict):
-        return self.percentile(dict, 95)
-
-    def null_value(self):
-        return {}
-
-
 @profile
 def generate_docs(nlp, inputfile):
     for line in inputfile:
@@ -122,9 +86,8 @@ def generate_docs(nlp, inputfile):
 def get_book_complexity(
     inputfile,
     nlp,
+    vocab_levels:Optional[VocabLevels] = None,
     vocabulary: Optional[set[str]] = None,
-    frequency: Optional[dict[str, int]] = None,
-    levels: Optional[list[range]] = None,
 ) -> OrderedDict[str, Any]:
     """Calculate and return the complexity of a single file
     (or other iterable that produces strings)"""
@@ -136,8 +99,8 @@ def get_book_complexity(
 
     if vocabulary:
         calculators.add("Words Known", WordsKnownCalculator(vocabulary))
-    if frequency and levels:
-        calculators.add("Vocab Level", VocabLevelCalculator(frequency, levels))
+    if vocab_levels:
+        calculators.add("Vocab Level", VocabLevelCalculator(vocab_levels, small_sample_size_cutoff=10))
 
     calculators.addRatio(
         ComplexityRatio("Mean Words Per Sentence", "Word Count", "Sentence Count")
@@ -211,29 +174,25 @@ def frequencies_from_csv(frequencycsv) -> dict[str, int]:
     return frequencies
 
 
-levels = [
-    range(0, 1000),
-    range(1000, 2000),
-    range(2000, 5000),
-    range(5000, 10000),
-    range(10000, 20000),
-    range(20000, 99999999),
-]
+def get_book_props(filename: str, separator = None):
+    title = trim_title(Path(filename).stem, separator)
+    author = Path(filename).parent.stem
+    return {"title": title, "author": author}
 
-
-def get_book_props(filename: str):
-    return {"title": Path(filename).stem, "author": Path(filename).parent.stem}
-
-
-def get_complexities(files, nlp, known_morph_list=None, frequencies=None):
+def get_complexities(files, nlp, known_morph_list, vocab:VocabLevels):
     for filename in files:
         with open(filename, "r", encoding="utf-8") as file:
-            complexity = get_book_complexity(
-                file, nlp, known_morph_list, frequencies, levels
-            )
+            complexity = get_book_complexity(file, nlp, known_morph_list, vocab)
             yield {"lang": nlp.meta["lang"]} | get_book_props(file.name) | complexity
 
-
+levels = {
+    "A1": range(0, 1000),
+    "A2": range(1000, 2000),
+    "B1": range(2000, 5000),
+    "B2": range(5000, 10000),
+    "C1": range(10000, 20000),
+    "C2": range(20000, 99999999),
+}
 def get_books_complexity(
     inputfolder: str,
     pipeline: str,
@@ -255,7 +214,7 @@ def get_books_complexity(
             files=files,
             nlp=nlp,
             known_morph_list=known_morph_list,
-            frequencies=frequencies,
+            vocab=VocabLevels(frequencies, levels)
         )
         for row in data:
             jsonl.append(outputfilename, row)
