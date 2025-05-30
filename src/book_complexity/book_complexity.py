@@ -276,17 +276,23 @@ def frequencies_from_csv(frequencycsv_file: BinaryIO) -> dict[str, int]:
 
 
 def get_book_props(filename: str, remove_title_suffix_after: Optional[str] = None) -> dict[str, str]:
-    """Extracts book title and author from a filename and its path.
+    """Extracts book title and author from a filename and its containing directory path.
 
-    Assumes title is the filename stem (optionally trimmed) and author is the parent directory name.
+    The function assumes the book's title can be derived from the filename's stem
+    (the filename without its final suffix/extension). This stem can optionally be
+    further trimmed using the `remove_title_suffix_after` string.
+    The author is assumed to be the name of the parent directory containing the file.
 
     Args:
-        filename: The full path to the book file.
-        remove_title_suffix_after: Optional string. If provided, the title (filename stem)
-                                   will be trimmed at the first occurrence of this string.
+        filename: The full path to the book file (e.g., "/path/to/Author Name/Book Title_extra.txt").
+        remove_title_suffix_after: Optional string. If provided, the filename stem
+                                   (e.g., "Book Title_extra") is passed to `trim_title`
+                                   along with this string to remove the suffix.
+                                   For example, if `_extra` is passed, the title becomes "Book Title".
 
     Returns:
         A dictionary with 'title' and 'author' keys.
+        Example: {"title": "Book Title", "author": "Author Name"}
     """
     title = trim_title(Path(filename).stem, remove_title_suffix_after)
     author = Path(filename).parent.stem
@@ -300,21 +306,30 @@ def get_complexities(
     small_sample_size_cutoff: int,
     remove_title_suffix_after: Optional[str] = None
 ) -> Generator[dict[str, Any], Any, Any]:
-    """Generates complexity data for a list of files.
+    """Generates complexity data for a list of text files.
 
-    For each file, it calculates complexity metrics and includes metadata
-    like language, title, and author.
+    This function iterates through a list of provided file paths. For each file,
+    it opens the file, calculates its complexity metrics using `get_book_complexity`,
+    and extracts metadata (language from the nlp object, title and author using
+    `get_book_props`). It then yields a single dictionary combining all this
+    information for the processed file.
 
     Args:
         files: A list of file paths to process.
-        nlp: The spaCy nlp object.
-        known_morph_list: An optional set of known morphs.
-        vocab: An optional VocabLevels object for vocabulary level calculations.
-        small_sample_size_cutoff: Word count cutoff for vocab level calculation.
-        remove_title_suffix_after: Optional string to trim from book titles.
+        nlp: The spaCy `Language` object used for text processing.
+        known_morph_list: An optional set of known morphs, passed to `get_book_complexity`.
+        vocab: An optional `VocabLevels` object for vocabulary level calculations,
+               passed to `get_book_complexity`.
+        small_sample_size_cutoff: Word count threshold below which vocabulary level
+                                  metrics are not calculated, passed to `get_book_complexity`.
+        remove_title_suffix_after: Optional string used by `get_book_props` to trim
+                                   titles derived from filenames.
 
     Yields:
-        A dictionary for each file containing its properties and complexity metrics.
+        A dictionary for each processed file. The dictionary contains keys such as
+        'lang', 'title', 'author', and various complexity metric keys returned by
+        `get_book_complexity` (e.g., 'Word Count', 'Mean Words Per Sentence',
+        'Vocab Level').
     """
     for filename in files:
         with open(filename, "r", encoding="utf-8") as file:
@@ -380,7 +395,7 @@ def get_books_complexity(
             nlp=nlp,
             known_morph_list=known_morph_list,
             vocab=vocab_levels_instance,
-        small_sample_size_cutoff=small_sample_size_cutoff,
+            small_sample_size_cutoff=small_sample_size_cutoff,
             remove_title_suffix_after=remove_title_suffix_after
         )
         for row in data:
