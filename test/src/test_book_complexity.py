@@ -175,3 +175,70 @@ class TestBookComplexityOnMultipleLongerStrings:
 
         doc = next(ru_nlp.pipe([short_string]))
         assert ComplexityCalculators.sentence_grammar_depth(next(doc.sents)) == 2
+
+
+import io
+from book_complexity.book_complexity import frequencies_from_csv
+
+class TestFrequenciesFromCSV:
+    def test_basic_parsing(self):
+        """Test basic CSV parsing for frequencies_from_csv."""
+        csv_content = b"lemma,inflection\napple,apples\nbanana,bananas\ncherry,cherries"
+        mock_file = io.BytesIO(csv_content)
+        expected = {
+            "apples": 0,  # Rank 0 for the first item after header
+            "bananas": 1, # Rank 1 for the second
+            "cherries": 2 # Rank 2 for the third
+        }
+        result = frequencies_from_csv(mock_file)
+        assert result == expected
+
+    def test_empty_csv_after_header(self):
+        """Test parsing an empty CSV (only header)."""
+        csv_content = b"lemma,inflection\n"
+        mock_file = io.BytesIO(csv_content)
+        expected = {}
+        result = frequencies_from_csv(mock_file)
+        assert result == expected
+
+    def test_csv_with_only_header_no_newline(self):
+        """Test parsing a CSV with only a header and no trailing newline."""
+        csv_content = b"lemma,inflection"
+        mock_file = io.BytesIO(csv_content)
+        expected = {}
+        result = frequencies_from_csv(mock_file)
+        assert result == expected
+
+    def test_unicode_characters(self):
+        """Test parsing CSV with unicode characters."""
+        csv_content = "lemma,inflection\nяблоко,яблоки\nбанан,бананы".encode('utf-8')
+        mock_file = io.BytesIO(csv_content)
+        expected = {
+            "яблоки": 0,
+            "бананы": 1
+        }
+        result = frequencies_from_csv(mock_file)
+        assert result == expected
+
+    def test_malformed_row_raises_value_error(self):
+        """Test that a row with an incorrect number of columns raises a ValueError."""
+        # This CSV has a header, one good row, one malformed row (1 col), one good row.
+        csv_content = b"lemma,inflection\napple,apples\nbanana\ncherry,cherries"
+        mock_file = io.BytesIO(csv_content)
+        with pytest.raises(ValueError) as excinfo:
+            frequencies_from_csv(mock_file)
+        assert "Expected 2 columns" in str(excinfo.value)
+        assert "Row content: ['banana']" in str(excinfo.value)
+        assert "data line 2" in str(excinfo.value) # 'banana' is the 2nd data line (i=1)
+
+    def test_empty_line_in_csv_raises_value_error(self):
+        """Test that an empty line in the CSV (after header) raises a ValueError."""
+        # This CSV has a header, then an empty line, then valid data.
+        csv_content = b"lemma,inflection\n\napple,apples\nbanana,bananas\n"
+        mock_file = io.BytesIO(csv_content)
+        with pytest.raises(ValueError) as excinfo:
+            frequencies_from_csv(mock_file)
+        # The first data line (i=0) is the empty line.
+        assert "Malformed row" in str(excinfo.value) 
+        assert "data line 1" in str(excinfo.value) # Empty line is the 1st data line (i=0)
+        assert "got 0" in str(excinfo.value) # len([]) is 0

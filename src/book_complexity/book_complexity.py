@@ -6,11 +6,14 @@ This module provides:
   (e.g., Word Count, Sentence Count, Grammar Depth).
 - The `get_book_complexity` function to analyze a single text file or iterable
   of strings and return a dictionary of calculated complexity scores.
-- The `get_books_complexity` function to process all .txt files in a folder
-  and output results to a JSONL file (this is the engine for the
-  `books-complexity` CLI tool).
+- The `get_books_complexity` function, which processes all .txt files in a specified
+  folder and outputs results to a JSONL file. This function serves as an engine
+  for batch processing but is not directly exposed as a command-line interface
+  in this script.
 - A command-line interface (`cli_book_complexity`) via Click for analyzing
-  a single text file and printing results to the console.
+  a single text file and printing its complexity results to the console.
+- Vocabulary level estimation based on word frequencies, using a `levels` dictionary
+  (mapping CEFR-like levels to word count thresholds) via the `VocabLevelCalculator`.
 """
 
 import glob
@@ -43,6 +46,8 @@ from tabulate import tabulate
 from book_complexity.vocabulary_levels import VocabLevelCalculator, VocabLevels
 from book_to_flashcards import trim_title 
 
+# Word count threshold below which vocabulary level metrics are not calculated.
+# This is to avoid potentially misleading results from insufficient text data.
 DEFAULT_SMALL_SAMPLE_SIZE_CUTOFF = 250
 
 
@@ -252,22 +257,22 @@ def frequencies_from_csv(frequencycsv_file: BinaryIO) -> dict[str, int]:
         frequencycsv_file: A binary file object for the CSV containing word frequencies.
 
     Returns:
-        A dictionary mapping inflected words to their frequency rank (lower is more frequent).
+        A dictionary mapping 'lemma,inflection' strings to their integer frequency rank 
+        (lower is more frequent).
     """
-    # unicodecsv can take a byte stream and an encoding
-    frequency_reader = unicodecsv.reader(frequencycsv_file, encoding='utf-8')
-    frequencies: dict[str, int] = {}
-    for index, words in enumerate(frequency_reader):
-        if index == 0: # Skip header row explicitly by index
-            continue
-        if len(words) >= 2: # Ensure row has at least two elements
-            _lemma, inflection = words[0], words[1] # Use specific indices
-            frequencies[inflection] = index # index is 1-based for content rows
-        else:
-            raise ValueError(f"Expected at least two words per row, got {len(words)}")
-
-
-    return frequencies
+    frequency_list: dict[str, int] = {}
+    freq_reader = unicodecsv.reader(frequencycsv_file, encoding='utf-8')
+    next(freq_reader)  # skip header
+    for i, row in enumerate(freq_reader):
+        if len(row) != 2:
+            raise ValueError(
+                f"Malformed row in frequency CSV at data line {i+1} (actual line {i+2}): "
+                f"Expected 2 columns (lemma, inflection), got {len(row)}. Row content: {row}"
+            )
+        # If row is valid, proceed
+        _lemma, inflection = row[0], row[1]
+        frequency_list[inflection] = i 
+    return frequency_list
 
 
 def get_book_props(filename: str, remove_title_suffix_after: Optional[str] = None) -> dict[str, str]:
@@ -316,9 +321,10 @@ def get_complexities(
             complexity = get_book_complexity(file, nlp, vocab_levels=vocab, vocabulary=known_morph_list, small_sample_size_cutoff=small_sample_size_cutoff)
             yield {"lang": nlp.meta["lang"]} | get_book_props(file.name, remove_title_suffix_after=remove_title_suffix_after) | complexity
 
-# CEFR-approximated frequency rank ranges used for VocabLevelCalculator.
-# Rank 0-1000 ~ A1, 1000-2000 ~ A2, etc.
-# Based on word frequency lists where lower rank = more frequent.
+# Defines target vocabulary sizes for different CEFR-like proficiency levels.
+# Used by VocabLevelCalculator to estimate the vocabulary level of a text.
+# Keys are level names (e.g., "A1", "A2") and values identify ranges in a sorted
+# word frequency list that a learner at that level might be expected to know.
 levels = {
     "A1": range(0, 1000),
     "A2": range(1000, 2000),
