@@ -1,11 +1,26 @@
-"""Calculate various complexity metrics for texts in human language"""
+"""
+Calculates various complexity metrics for texts in human language.
+
+This module provides:
+- A collection of `ComplexityCalculator` classes for individual metrics
+  (e.g., Word Count, Sentence Count, Grammar Depth).
+- The `get_book_complexity` function to analyze a single text file or iterable
+  of strings and return a dictionary of calculated complexity scores.
+- The `get_books_complexity` function to process all .txt files in a folder
+  and output results to a JSONL file (this is the engine for the
+  `books-complexity` CLI tool).
+- A command-line interface (`cli_book_complexity`) via Click for analyzing
+  a single text file and printing results to the console.
+"""
 
 import glob
 from pathlib import Path
-from line_profiler import profile
-from typing import Any, Optional, OrderedDict, TextIO, cast
+from line_profiler import profile # type: ignore
+from typing import Any, Optional, OrderedDict, TextIO, cast, Generator, Union, BinaryIO
 import orjsonl as jsonl
-from spacy.tokens import Token, Span
+import spacy # type: ignore
+from spacy.tokens import Token, Span # type: ignore
+from spacy.language import Language # type: ignore
 
 
 # from line_profiler import profile
@@ -17,7 +32,7 @@ from book_complexity.ComplexityCalculators import (
     sentence_grammar_depth,
     words_known,
 )
-import spacy
+# import spacy 
 import click
 import alive_progress  # type: ignore
 
@@ -26,17 +41,29 @@ import unicodecsv  # type: ignore
 from tabulate import tabulate
 
 from book_complexity.vocabulary_levels import VocabLevelCalculator, VocabLevels
-from book_to_flashcards import trim_title
+from book_to_flashcards import trim_title 
 
 DEFAULT_SMALL_SAMPLE_SIZE_CUTOFF = 250
 
 
-def make_nlp(pipeline: str):
-    """Create a Spacy pipeline set up for complexity analysis"""
+def make_nlp(pipeline: str) -> Language:
+    """Create a spaCy pipeline optimized for complexity analysis.
+
+    Excludes 'lemmatizer', 'ner', and 'attribute_ruler' as they are not
+    required for the current set of complexity metrics, improving loading
+    time and memory usage.
+
+    Args:
+        pipeline: The name of the spaCy pipeline to load (e.g., 'en_core_web_sm').
+
+    Returns:
+        A loaded spaCy nlp object.
+    """
     return spacy.load(pipeline, exclude=["lemmatizer", "ner", "attribute_ruler"])
 
 
 class WordCountCalculator(ComplexityCalculator):
+    """Calculates the total number of words, excluding punctuation, digits, and spaces."""
     name = "Word Count"
 
     def process_token(self, token: Token) -> int:
@@ -44,6 +71,7 @@ class WordCountCalculator(ComplexityCalculator):
 
 
 class SentenceCountCalculator(ComplexityCalculator):
+    """Calculates the total number of sentences."""
     name = "Sentence Count"
 
     def process_sentence(self, sentence: Span) -> int:
@@ -51,6 +79,7 @@ class SentenceCountCalculator(ComplexityCalculator):
 
 
 class CumulativeWordLengthCalculator(ComplexityCalculator):
+    """Calculates the sum of the lengths of all words, excluding punctuation, digits, and spaces."""
     name = "Cumulative Word Length"
 
     def process_token(self, token: Token):
@@ -60,6 +89,7 @@ class CumulativeWordLengthCalculator(ComplexityCalculator):
 
 
 class GrammarDepthCalculator(ComplexityCalculator):
+    """Calculates the sum of the grammatical depth of each sentence."""
     name = "Cumulative Grammar Depth"
 
     def process_sentence(self, sentence: Span):
@@ -67,9 +97,14 @@ class GrammarDepthCalculator(ComplexityCalculator):
 
 
 class WordsKnownCalculator(ComplexityCalculator):
+    """Calculates the number of words in the input that are present in a provided vocabulary set."""
     name = "Words Known"
 
-    def __init__(self, vocabulary):
+    def __init__(self, vocabulary: set[str]):
+        """
+        Args:
+            vocabulary: A set of known word strings.
+        """
         self.vocabulary = vocabulary
 
     def process_token(self, token: Token):
@@ -77,7 +112,16 @@ class WordsKnownCalculator(ComplexityCalculator):
 
 
 @profile
-def generate_docs(nlp, inputfile):
+def generate_docs(nlp: Language, inputfile: TextIO) -> Generator[spacy.tokens.Doc, Any, Any]:
+    """Processes lines from an input file and yields spaCy Doc objects.
+
+    Args:
+        nlp: The spaCy nlp object.
+        inputfile: A text file object (or any iterable yielding strings).
+
+    Yields:
+        spaCy Doc objects, one for each processed line.
+    """
     for line in inputfile:
         docs = nlp.pipe([line.strip()])
         for doc in docs:
@@ -86,14 +130,25 @@ def generate_docs(nlp, inputfile):
 
 @profile
 def get_book_complexity(
-    inputfile,
-    nlp,
+    inputfile: TextIO,
+    nlp: Language,
     vocab_levels:Optional[VocabLevels] = None,
     vocabulary: Optional[set[str]] = None,
     small_sample_size_cutoff: int = DEFAULT_SMALL_SAMPLE_SIZE_CUTOFF,
 ) -> OrderedDict[str, Any]:
-    """Calculate and return the complexity of a single file
-    (or other iterable that produces strings)"""
+    """Calculate and return a dictionary of complexity metrics for a single text.
+
+    Args:
+        inputfile: A file object or other iterable that yields strings (lines of text).
+        nlp: The spaCy nlp object for processing the text.
+        vocab_levels: An optional VocabLevels object for configuring vocabulary level metrics.
+        vocabulary: An optional set of known words for calculating "Words Known" metrics.
+        small_sample_size_cutoff: Word count below which vocabulary level is not calculated.
+
+    Returns:
+        An OrderedDict containing metric names as keys and their calculated values.
+        Intermediate "Cumulative" metrics used for ratios are removed from the final output.
+    """
     calculators = ComplexityCalculators()
     calculators.add("Word Count", WordCountCalculator())
     calculators.add("Sentence Count", SentenceCountCalculator())
@@ -125,7 +180,7 @@ def get_book_complexity(
 
     docs = generate_docs(nlp, inputfile)
     results = calculators.get_results(docs)
-    for k in [k for k in results.keys() if k.startswith("Cumulative")]:
+    for k in [key for key in results.keys() if key.startswith("Cumulative")]:
         results.pop(k)  # these were just to calculate the ratios, let's lose them
     return results
 
@@ -133,27 +188,30 @@ def get_book_complexity(
 @click.command()
 @click.argument("inputfile", type=click.File(mode="r", encoding="utf-8"))
 @click.option(
-    "--pipeline", help="Name of spacy pipeline to read file"
-)  # ru_core_news_sm
+    "--pipeline", required=True, help="Name of spaCy pipeline to use (e.g., 'en_core_web_sm')."
+)
 @click.option(
     "--knownmorphs",
-    type=click.File(mode="rb", encoding="utf-8"),
-    help="Known Morphs csv from Ankimorphs",
+    type=click.File(mode="rb"), # unicodecsv expects byte stream
+    help="Path to a CSV file of known morphs (e.g., from AnkiMorphs). Expected format: one morph per line in the second column.",
 )
 @click.option(
     "--frequencycsv",
-    type=click.File(mode="rb", encoding="utf-8"),
-    help="Word frequency list for the language the file is in",
+    type=click.File(mode="rb"), # unicodecsv often expects byte stream
+    help="Path to a CSV file containing word frequencies for the text's language. Expected format: lemma,inflection per line, with frequency implied by order.",
 )
-def cli_book_complexity(inputfile, pipeline, knownmorphs, frequencycsv):
-    """Calculate complexity of a single text file and send it to the console"""
+def cli_book_complexity(inputfile: TextIO, pipeline: str, knownmorphs: Optional[BinaryIO], frequencycsv: Optional[BinaryIO]):
+    """Calculates and prints complexity metrics for a single text file.
+
+    The results are printed to the console in a table format.
+    """
     nlp = make_nlp(pipeline)
 
     known_morph_list = morphs_from_csv(knownmorphs) if knownmorphs else None
     vocab_levels_obj = None
     if frequencycsv:
         frequency_list = frequencies_from_csv(frequencycsv)
-        # Assuming 'levels' is the global 'levels' dictionary defined later in the file
+        # 'levels' is the global 'levels' dictionary defined in this file
         vocab_levels_obj = VocabLevels(frequencies=frequency_list, levels=levels)
 
     complexity = get_book_complexity(
@@ -163,68 +221,160 @@ def cli_book_complexity(inputfile, pipeline, knownmorphs, frequencycsv):
     print(tabulate([[k, v] for k, v in complexity.items()]))
 
 
-def morphs_from_csv(knownmorphs) -> set[str]:
+def morphs_from_csv(knownmorphs_file: BinaryIO) -> set[str]:
+    """Reads known morphs from a CSV file.
+
+    Expects a CSV file where the second column of each row contains a morph.
+    The CSV is read with UTF-8 encoding.
+
+    Args:
+        knownmorphs_file: A binary file object for the CSV containing known morphs.
+
+    Returns:
+        A set of known morph strings.
+    """
     known_morph_list = set()
-    morph_reader = unicodecsv.reader(knownmorphs)
+    morph_reader = unicodecsv.reader(knownmorphs_file, encoding='utf-8')
     for row in morph_reader:
-        known_morph_list.add(row[1])
+        if len(row) > 1: # Ensure row has at least two columns
+            known_morph_list.add(row[1])
     return known_morph_list
 
 
-def frequencies_from_csv(frequencycsv) -> dict[str, int]:
-    frequency_reader = unicodecsv.reader(frequencycsv)
+def frequencies_from_csv(frequencycsv_file: BinaryIO) -> dict[str, int]:
+    """Reads word frequencies from a CSV file.
+
+    Expects a CSV file where each row after the header contains 'lemma,inflection'.
+    The line number (minus 1 for the header) is used as the frequency rank.
+    The CSV is read with UTF-8 encoding.
+
+    Args:
+        frequencycsv_file: A binary file object for the CSV containing word frequencies.
+
+    Returns:
+        A dictionary mapping inflected words to their frequency rank (lower is more frequent).
+    """
+    # unicodecsv can take a byte stream and an encoding
+    frequency_reader = unicodecsv.reader(frequencycsv_file, encoding='utf-8')
     frequencies: dict[str, int] = {}
     for index, words in enumerate(frequency_reader):
-        (lemma, inflection) = words
-        if index > 1:  # skip the header row
-            frequencies[inflection] = index
+        if index == 0: # Skip header row explicitly by index
+            continue
+        if len(words) >= 2: # Ensure row has at least two elements
+            _lemma, inflection = words[0], words[1] # Use specific indices
+            frequencies[inflection] = index # index is 1-based for content rows
+        else:
+            raise ValueError(f"Expected at least two words per row, got {len(words)}")
+
+
     return frequencies
 
 
-def get_book_props(filename: str, remove_title_suffix_after = None):
+def get_book_props(filename: str, remove_title_suffix_after: Optional[str] = None) -> dict[str, str]:
+    """Extracts book title and author from a filename and its path.
+
+    Assumes title is the filename stem (optionally trimmed) and author is the parent directory name.
+
+    Args:
+        filename: The full path to the book file.
+        remove_title_suffix_after: Optional string. If provided, the title (filename stem)
+                                   will be trimmed at the first occurrence of this string.
+
+    Returns:
+        A dictionary with 'title' and 'author' keys.
+    """
     title = trim_title(Path(filename).stem, remove_title_suffix_after)
     author = Path(filename).parent.stem
     return {"title": title, "author": author}
 
-def get_complexities(files, nlp, known_morph_list, vocab:VocabLevels, small_sample_size_cutoff: int, remove_title_suffix_after: Optional[str] = None):
+def get_complexities(
+    files: list[str],
+    nlp: Language,
+    known_morph_list: Optional[set[str]],
+    vocab: Optional[VocabLevels], # Made Optional to handle case where frequencycsv is not provided
+    small_sample_size_cutoff: int,
+    remove_title_suffix_after: Optional[str] = None
+) -> Generator[dict[str, Any], Any, Any]:
+    """Generates complexity data for a list of files.
+
+    For each file, it calculates complexity metrics and includes metadata
+    like language, title, and author.
+
+    Args:
+        files: A list of file paths to process.
+        nlp: The spaCy nlp object.
+        known_morph_list: An optional set of known morphs.
+        vocab: An optional VocabLevels object for vocabulary level calculations.
+        small_sample_size_cutoff: Word count cutoff for vocab level calculation.
+        remove_title_suffix_after: Optional string to trim from book titles.
+
+    Yields:
+        A dictionary for each file containing its properties and complexity metrics.
+    """
     for filename in files:
         with open(filename, "r", encoding="utf-8") as file:
             complexity = get_book_complexity(file, nlp, vocab_levels=vocab, vocabulary=known_morph_list, small_sample_size_cutoff=small_sample_size_cutoff)
             yield {"lang": nlp.meta["lang"]} | get_book_props(file.name, remove_title_suffix_after=remove_title_suffix_after) | complexity
 
+# CEFR-approximated frequency rank ranges used for VocabLevelCalculator.
+# Rank 0-1000 ~ A1, 1000-2000 ~ A2, etc.
+# Based on word frequency lists where lower rank = more frequent.
 levels = {
     "A1": range(0, 1000),
     "A2": range(1000, 2000),
     "B1": range(2000, 5000),
     "B2": range(5000, 10000),
     "C1": range(10000, 20000),
-    "C2": range(20000, 99999999),
+    "C2": range(20000, 99999999), # Using a large upper bound for C2
 }
+
 def get_books_complexity(
     inputfolder: str,
     pipeline: str,
-    knownmorphs: TextIO,
-    frequencycsv: TextIO,
+    knownmorphs_file_arg: Optional[BinaryIO], # Renamed to avoid conflict with variable
+    frequencycsv_file_arg: Optional[BinaryIO], # Renamed to avoid conflict with variable
     outputfilename: str,
     remove_title_suffix_after: Optional[str] = None,
     small_sample_size_cutoff: int = DEFAULT_SMALL_SAMPLE_SIZE_CUTOFF,
 ):
-    """Calculate the complexity of all text files in a folder, and
-    output a jsonl file with one line per text file"""
+    """Calculates complexity for all .txt files in a folder and writes results to a JSONL file.
+
+    This function drives the core logic for batch processing multiple books, used
+    by the 'books-complexity' command-line tool. It displays a progress bar during processing.
+
+    Args:
+        inputfolder: Path to the folder containing .txt files (searched recursively).
+        pipeline: Name of the spaCy pipeline to use.
+        knownmorphs_file_arg: Optional binary file object for the known morphs CSV.
+        frequencycsv_file_arg: Optional binary file object for the word frequency CSV.
+        outputfilename: Path to the output JSONL file. The file must not already exist.
+        remove_title_suffix_after: Optional string to trim from book titles derived from filenames.
+        small_sample_size_cutoff: Word count cutoff for vocabulary level calculation.
+
+    Raises:
+        Exception: If the outputfilename already exists.
+    """
     if Path(outputfilename).exists():
         raise Exception(f"File {outputfilename} already exists")
-    
     files = glob.glob(inputfolder + "/**/*.txt", recursive=True)
+    if not files:
+        raise Exception(f"No .txt files found in {inputfolder}")
+
     with alive_progress.alive_bar(len(files), bar="bubbles", spinner="classic") as bar:
         nlp = make_nlp(pipeline)
-        known_morph_list = morphs_from_csv(knownmorphs) if knownmorphs else None
-        frequencies = frequencies_from_csv(frequencycsv) if frequencycsv else None
+        known_morph_list = morphs_from_csv(knownmorphs_file_arg) if knownmorphs_file_arg else None
+        
+        vocab_levels_instance: Optional[VocabLevels] = None
+        if frequencycsv_file_arg:
+            frequencies = frequencies_from_csv(frequencycsv_file_arg)
+            vocab_levels_instance = VocabLevels(frequencies, levels)
+            
         data = get_complexities(
             files=files,
             nlp=nlp,
             known_morph_list=known_morph_list,
-            vocab=VocabLevels(frequencies, levels),
-            small_sample_size_cutoff=small_sample_size_cutoff,
+            vocab=vocab_levels_instance,
+        small_sample_size_cutoff=small_sample_size_cutoff,
             remove_title_suffix_after=remove_title_suffix_after
         )
         for row in data:

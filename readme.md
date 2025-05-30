@@ -1,22 +1,26 @@
 # Tools for learning languages from books
 
-Reading books and short stories is a great tool for language learning, and many languages
-have lots of public domain books available for free download.
-However, it can be difficult to find books at an appropriate level, and frustrating to read a book
-as a language learner if your state of flow is constantly interrupted by having to look up words.
+Reading books and short stories is a great tool for language learning, and many languages have lots of public domain books available for free download.
+However, it can be difficult to find books at an appropriate level, and frustrating to read a book as a language learner if your state of flow is constantly interrupted by having to look up words. Reading a book in small discrete chunks with easily accessible translations can massively improve "flow" for language learners.
 
 This package contains
 
-1. **book-to-flashcard**, a tool to turn a book into learning material. Currently it supports
-flashcards suitable for importing into Anki (<https://apps.ankiweb.net/>), as well as full side-by-side translations (with the original text in the left column and translated text in the right column).
+1.  **`book-to-flashcard`**:
+    *   Converts text files into Anki flashcard decks (.apkg files)
+    *   Splits text into manageable chunks that make sense standalone
+    *   Translates chunks to your language of choice.
+    *   Allows intermediate JSONL format for staged processing (e.g., split up text first and translate separately, or use the flash card data for other processing outside this tool).
+    *   Includes a dummy translation option for trying out the tool without translation API usage.
 
-    Reading a book in small discrete chunks with easily accessible translations can massively improve "flow" for language learners.
-
-2. **books-complexity**, a tool to calculate various complexity metrics on text files. If you have a large corpus of texts, this can be used to identify suitable foreign language texts to study.
+2.  **`books-complexity` / `book-complexity`**:
+    *   Calculates various complexity metrics for text files.
+    *   Metrics include: word count, sentence count, words per sentence, mean word length, mean grammar depth (based on parse trees).
+    *   Can estimate "words known" and "percent words known" if a list of known words is provided (e.g., from AnkiMorphs).
+    *   Provides a "Vocabulary Level" based on word frequency lists, very vaguely corresponding to CEFR levels.
 
 ## Warning
 
-These tools lean heavily on AI. AI is pretty neat but it is often also very dumb. Its translations will not be nearly as good as human translations, and sometimes they will be outright wrong. But the're usually good enough to be helpful in the learning context. Make sure you always start with foreign language material and translate it into your native language - if you try it the other way round, you won't be able to tell when the AI is making silly mistakes.
+`book-to-flashcard` uses AI for translations. AI is pretty good but it is often also very dumb. Its translations will not be as good as human translations, and sometimes they will be wrong. But the're usually good enough to be helpful in the learning context. If you start with foreign language material and translate it into your native language (rather than the other way round), you'll be able to tell when the AI is making silly mistakes.
 
 ## Installation
 
@@ -43,7 +47,7 @@ Anki (<https://apps.ankiweb.net/>) is a flashcard application that uses spaced r
 
 **book-to-flashcard** will generate one anki deck per text file. Each deck will contain the entire text of that file, in order, split into flash-card-sized chunks, with the original text on the front of the card and the translated text on the back of the card. All the decks will be bundled into a single Anki .apkg file.
 
-**book-to-flashcard** uses AI language parsing (via the spacy library) to try and split long sentences in such a way that they can be individually understood and translated without context.
+**book-to-flashcard** uses AI language parsing to try and split long sentences in such a way that they can be individually understood and translated without context.
 
 DeepL is used to translate each card to a language of the user's choice. The list of available languages can be found here: <https://developers.deepl.com/docs/resources/supported-languages#target-languages>
 
@@ -59,20 +63,6 @@ book-to-flashcard from-text 'my-russian-book.txt' pipeline 'ru_core_news_sm' tra
 
 ```Powershell
 book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' translate --deeplkey 'YOUR_KEY' --lang 'EN-GB' to-anki 'all_my_books.apkg'
-```
-
-### Generating side-by-side translations
-
-This allows you to generate HTML files (one for each of your source text files) with the original text in the left column and the translated text in the right column. As with the flash cards, the text is split using AI into chunks that are individually translated, so it's easy to understand how the translated text matches up to the source.
-
-The size of the chunks is configurable, as well as the font size in the HTML output. For easy books you may like to use smaller chunks and larger fonts - for complex books and for more experienced language learners, larger chunks and smaller fonts may be easier to read.
-
-```Powershell
-book-to-flashcard from-text 'my-russian-book.txt' pipeline --maxfieldlen 70 'ru_core_news_sm' translate --deeplkey 'YOUR_KEY' --lang 'EN-GB' to-sidebyside --fontsize=20 
-```
-
-```Powershell
-book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' translate --deeplkey 'YOUR_KEY' --lang 'EN-GB' to-sidebyside
 ```
 
 ### Advanced usage
