@@ -59,8 +59,8 @@ def cli_books_complexity(
     get_books_complexity(
         inputfolder=inputfolder,
         pipeline=pipeline,
-        knownmorphs_file_arg=knownmorphs,
-        frequencycsv_file_arg=frequencycsv,
+        knownmorphs_file=knownmorphs,
+        frequencycsv_file=frequencycsv,
         outputfilename=outputfilename,
         remove_title_suffix_after=remove_title_suffix_after,
         small_sample_size_cutoff=small_sample_size_cutoff
