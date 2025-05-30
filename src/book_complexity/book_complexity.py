@@ -243,6 +243,9 @@ def get_books_complexity(
 ):
     """Calculate the complexity of all text files in a folder, and
     output a jsonl file with one line per text file"""
+    if Path(outputfilename).exists():
+        raise Exception(f"File {outputfilename} already exists")
+    
     files = glob.glob(inputfolder + "/**/*.txt", recursive=True)
     with alive_progress.alive_bar(len(files), bar="bubbles", spinner="classic") as bar:
         nlp = make_nlp(pipeline)
