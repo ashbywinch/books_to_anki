@@ -56,7 +56,7 @@ class VocabLevelCalculator(ComplexityCalculator):
     def and_finally(self, dict):
         # If there's not many words, we can't made a good estimate of the vocabulary level
         if sum(dict.values()) < self.small_sample_size_cutoff:
-            return None
+            return ""
         return self.percentile(dict, 95)
 
     def null_value(self):

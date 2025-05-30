@@ -7,6 +7,7 @@ from book_complexity import ComplexityCalculators
 from book_complexity.book_complexity import (
     VocabLevelCalculator,
     get_complexities,
+    DEFAULT_SMALL_SAMPLE_SIZE_CUTOFF
 )
 import pytest
 
@@ -68,24 +69,26 @@ class TestBookComplexityOnMultipleLongerStrings:
     def test_vocabulary_level_basic(self, en_nlp):
         frequencies = {"peas": 500, "likes": 20}
         levels = { 'A1':range(0, 400), 'A2':range(400, 1000)}
-        teststrings = ["Bob likes green peas"]
+        teststrings = ["Bob likes green peas"] # 4 words
 
         complexity = get_book_complexity(
-            teststrings, en_nlp, VocabLevels(frequencies=frequencies, levels=levels)
+            teststrings, en_nlp, VocabLevels(frequencies=frequencies, levels=levels),
+            small_sample_size_cutoff=5 # 4 words < 5, so should be cut off
         )
 
-        assert complexity["Vocab Level"] is None
+        assert complexity["Vocab Level"] == ""
 
     def test_vocabulary_level_percentile(self, en_nlp):
         frequencies = {"peas": 500, "likes": 20, "supercalifragilistic": 2000}
         levels = { 'A1':range(0, 400), 'A2':range(400, 1000), 'B1': range(1000, 5000)}
 
-        teststrings = ["Bob likes green peas " * 5 + " supercalifragilistic"]
+        teststrings = ["Bob likes green peas " * 5 + " supercalifragilistic"] # 21 words
 
         complexity = get_book_complexity(
-            teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels)
+            teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels),
+            small_sample_size_cutoff=10 # 21 words >= 10, should calculate
         )
-        # Should still only be A2 despite a low frequency word sneaking in
+        # Calculation: {'A1': 15, 'A2': 5, 'B1': 1}. 95th percentile of 21 words is 19.95th word -> A2
         assert complexity["Vocab Level"] == 'A2'
 
     def test_vocabulary_level_A1(self, en_nlp):
@@ -93,8 +96,10 @@ class TestBookComplexityOnMultipleLongerStrings:
         levels = {'A1': range(0, 400), 'A2': range(400, 1000), 'B1': range(1000, 5000)}
         teststrings = ["Apple banana cherry date elderberry fig grape honeydew kiwi lemon mango."] # 11 words
         complexity = get_book_complexity(
-            teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels)
+            teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels),
+            small_sample_size_cutoff=10 # 11 words >= 10, should calculate
         )
+        # Calculation: {'A1': 11}. 95th percentile of 11 words is 10.45th word -> A1
         assert complexity["Vocab Level"] == 'A1'
 
     def test_vocabulary_level_B1(self, en_nlp):
@@ -102,56 +107,61 @@ class TestBookComplexityOnMultipleLongerStrings:
         levels = {'A1': range(0, 400), 'A2': range(400, 1000), 'B1': range(1000, 5000)}
         teststrings = ["Persimmon boysenberry lingonberry mulberry nectarine olive papaya peach pear pineapple plum."] # 11 words
         complexity = get_book_complexity(
-            teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels)
+            teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels),
+            small_sample_size_cutoff=10 # 11 words >= 10, should calculate
         )
+        # Calculation: {'B1': 11}. 95th percentile of 11 words is 10.45th word -> B1
         assert complexity["Vocab Level"] == 'B1'
 
     def test_vocabulary_level_empty_string_input(self, en_nlp):
         frequencies = {"apple": 50}
         levels = {'A1': range(0, 400)}
-        teststrings = [""]
+        teststrings = [""] # 0 words
         complexity = get_book_complexity(
-            teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels)
+            teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels),
+            small_sample_size_cutoff=1 # 0 words < 1, should be cut off
         )
         assert complexity["Word Count"] == 0
-        assert complexity["Vocab Level"] is None # Due to small_sample_size_cutoff
+        assert complexity["Vocab Level"] == "" # Due to small_sample_size_cutoff
 
     def test_vocabulary_level_empty_list_input(self, en_nlp):
         frequencies = {"apple": 50}
         levels = {'A1': range(0, 400)}
-        teststrings = []
+        teststrings = [] # 0 words
         complexity = get_book_complexity(
-            teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels)
+            teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels),
+            small_sample_size_cutoff=1 # 0 words < 1, should be cut off
         )
         assert complexity["Word Count"] == 0
-        assert complexity["Vocab Level"] is None # Due to small_sample_size_cutoff
+        assert complexity["Vocab Level"] == "" # Due to small_sample_size_cutoff
 
     def test_vocabulary_level_no_words_in_frequency_list(self, en_nlp):
         frequencies = {"known": 100, "words": 200} # A1
         levels = {'A1': range(0, 400), 'A2': range(400, 1000)}
-        # Text has 11 words, so it's above the cutoff of 10
+        # Text has 11 words
         teststrings = ["Xyz Abc Qwerty Rty Uio Plk Mnb Vcx Zaq Wsx Edc."]
         complexity = get_book_complexity(
-            teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels)
+            teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels),
+            small_sample_size_cutoff=10 # 11 words >= 10, should calculate
         )
-        # All words are unknown, so they should get the default_level ('A1')
-        # and since word count (11) > cutoff (10), it should return the 95th percentile of these default levels.
+        # All words are unknown (default to 'A1'). {'A1': 11}. 95th percentile is 'A1'.
         assert complexity["Vocab Level"] == 'A1'
 
     def test_vocabulary_level_just_above_cutoff(self, en_nlp):
-        # 11 words, cutoff is 10
-        frequencies = {"apple": 50, "banana": 60, "cherry": 70, "date": 80, "elderberry": 90, "fig": 100, "grape": 110, "honeydew": 120, "kiwi": 130, "lemon": 140, "mango": 500} # Most A1, one A2
+        # 11 words
+        frequencies = {"apple": 50, "banana": 60, "cherry": 70, "date": 80, "elderberry": 90, "fig": 100, "grape": 110, "honeydew": 120, "kiwi": 130, "lemon": 140, "mango": 500} # Most A1, one A2 ("mango")
         levels = {'A1': range(0, 400), 'A2': range(400, 1000)}
         teststrings = ["Apple banana cherry date elderberry fig grape honeydew kiwi lemon mango."]
         complexity = get_book_complexity(
-            teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels)
+            teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels),
+            small_sample_size_cutoff=10 # 11 words >= 10, should calculate
         )
-        # 95th percentile of (10 A1s and 1 A2) should be A2
+        # Calculation: {'A1': 10, 'A2': 1}. 95th percentile of 11 words is 10.45th word -> A2
         assert complexity["Vocab Level"] == 'A2'
 
     def test_complexities(self, en_nlp):
         files = glob("test/data/dummy_books/**/*.txt", recursive=True)
-        complexities = list(get_complexities(files, nlp=en_nlp, vocab=None, known_morph_list=None))
+        complexities = list(get_complexities(files, nlp=en_nlp, vocab=None, known_morph_list=None, small_sample_size_cutoff=DEFAULT_SMALL_SAMPLE_SIZE_CUTOFF))
         assert len(list(complexities)) == 2
         assert complexities[0]["title"] == "dummy_book"
         assert complexities[0]["author"] == "dummy_books"

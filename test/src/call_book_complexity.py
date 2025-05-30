@@ -16,4 +16,6 @@ if __name__ == "__main__":
             knownmorphs=vocabulary,
             frequencycsv=frequencycsv,
             outputfilename="complexity.jsonl",
+            remove_title_suffix_after="_",
+            small_sample_size_cutoff=250
         )

@@ -28,6 +28,8 @@ from tabulate import tabulate
 from book_complexity.vocabulary_levels import VocabLevelCalculator, VocabLevels
 from book_to_flashcards import trim_title
 
+DEFAULT_SMALL_SAMPLE_SIZE_CUTOFF = 250
+
 
 def make_nlp(pipeline: str):
     """Create a Spacy pipeline set up for complexity analysis"""
@@ -88,6 +90,7 @@ def get_book_complexity(
     nlp,
     vocab_levels:Optional[VocabLevels] = None,
     vocabulary: Optional[set[str]] = None,
+    small_sample_size_cutoff: int = DEFAULT_SMALL_SAMPLE_SIZE_CUTOFF,
 ) -> OrderedDict[str, Any]:
     """Calculate and return the complexity of a single file
     (or other iterable that produces strings)"""
@@ -100,7 +103,7 @@ def get_book_complexity(
     if vocabulary:
         calculators.add("Words Known", WordsKnownCalculator(vocabulary))
     if vocab_levels:
-        calculators.add("Vocab Level", VocabLevelCalculator(vocab_levels, small_sample_size_cutoff=10))
+        calculators.add("Vocab Level", VocabLevelCalculator(vocab_levels, small_sample_size_cutoff=small_sample_size_cutoff))
 
     calculators.addRatio(
         ComplexityRatio("Mean Words Per Sentence", "Word Count", "Sentence Count")
@@ -147,10 +150,14 @@ def cli_book_complexity(inputfile, pipeline, knownmorphs, frequencycsv):
     nlp = make_nlp(pipeline)
 
     known_morph_list = morphs_from_csv(knownmorphs) if knownmorphs else None
-    frequency_list = frequencies_from_csv(frequencycsv) if frequencycsv else None
+    vocab_levels_obj = None
+    if frequencycsv:
+        frequency_list = frequencies_from_csv(frequencycsv)
+        # Assuming 'levels' is the global 'levels' dictionary defined later in the file
+        vocab_levels_obj = VocabLevels(frequencies=frequency_list, levels=levels)
 
     complexity = get_book_complexity(
-        inputfile, nlp, known_morph_list, frequency_list, levels
+        inputfile, nlp, vocab_levels=vocab_levels_obj, vocabulary=known_morph_list
     )
 
     print(tabulate([[k, v] for k, v in complexity.items()]))
@@ -174,16 +181,16 @@ def frequencies_from_csv(frequencycsv) -> dict[str, int]:
     return frequencies
 
 
-def get_book_props(filename: str, separator = None):
-    title = trim_title(Path(filename).stem, separator)
+def get_book_props(filename: str, remove_title_suffix_after = None):
+    title = trim_title(Path(filename).stem, remove_title_suffix_after)
     author = Path(filename).parent.stem
     return {"title": title, "author": author}
 
-def get_complexities(files, nlp, known_morph_list, vocab:VocabLevels):
+def get_complexities(files, nlp, known_morph_list, vocab:VocabLevels, small_sample_size_cutoff: int, remove_title_suffix_after: Optional[str] = None):
     for filename in files:
         with open(filename, "r", encoding="utf-8") as file:
-            complexity = get_book_complexity(file, nlp, known_morph_list, vocab)
-            yield {"lang": nlp.meta["lang"]} | get_book_props(file.name) | complexity
+            complexity = get_book_complexity(file, nlp, vocab_levels=vocab, vocabulary=known_morph_list, small_sample_size_cutoff=small_sample_size_cutoff)
+            yield {"lang": nlp.meta["lang"]} | get_book_props(file.name, remove_title_suffix_after=remove_title_suffix_after) | complexity
 
 levels = {
     "A1": range(0, 1000),
@@ -199,6 +206,8 @@ def get_books_complexity(
     knownmorphs: TextIO,
     frequencycsv: TextIO,
     outputfilename: str,
+    remove_title_suffix_after: Optional[str] = None,
+    small_sample_size_cutoff: int = DEFAULT_SMALL_SAMPLE_SIZE_CUTOFF,
 ):
     """Calculate the complexity of all text files in a folder, and
     output a jsonl file with one line per text file"""
@@ -214,7 +223,9 @@ def get_books_complexity(
             files=files,
             nlp=nlp,
             known_morph_list=known_morph_list,
-            vocab=VocabLevels(frequencies, levels)
+            vocab=VocabLevels(frequencies, levels),
+            small_sample_size_cutoff=small_sample_size_cutoff,
+            remove_title_suffix_after=remove_title_suffix_after
         )
         for row in data:
             jsonl.append(outputfilename, row)
