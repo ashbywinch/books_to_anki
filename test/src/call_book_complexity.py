@@ -9,10 +9,13 @@ if __name__ == "__main__":
         open("data/vocabulary.csv", mode="rb") as vocabulary,
         open("data/ru-freq.csv", mode="rb") as frequencycsv,
     ):
+
         get_books_complexity(
-            inputfolder="data/books-small",
+            inputfolder="data/books",
             pipeline="ru_core_news_sm",
             knownmorphs=vocabulary,
             frequencycsv=frequencycsv,
             outputfilename="complexity.jsonl",
+            remove_title_suffix_after="_",
+            small_sample_size_cutoff=250
         )

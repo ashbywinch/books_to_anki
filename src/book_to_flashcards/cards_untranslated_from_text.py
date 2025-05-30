@@ -6,18 +6,6 @@ from split_sentences import make_nlp, split_text
 from collections.abc import Generator
 from typing import Any
 
-def trim_title(title:str, separator:str) -> str:
-    return title if separator == "" else separator.join(title.split(separator)[:-1])
-
-def card_trim_title(card:Card, separator:str) -> Card:
-    return Card(
-        title = trim_title(card.title, separator),
-        author=card.author,
-        start = card.start,
-        end = card.end,
-        text = card.text,
-        translation = card.translation
-    )
 
 # If the first card in a given book has the author name as the text, don't yield it
 def cards_skip_first_line_if_author(cards) -> Generator[Card, Any, Any]:

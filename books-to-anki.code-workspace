@@ -17,6 +17,7 @@
 					"cmd": "testing.runAll"
 				}
 			]
-		}
+		},
+		"testing.automaticallyOpenTestResults": "openOnTestFailure"
 	}
 }

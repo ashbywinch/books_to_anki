@@ -190,16 +190,3 @@ def sentence_grammar_depth(sent: Span) -> int:
 
 def words_known(token: Token, vocabulary: set[str]) -> int:
     return 1 if ((token.text in vocabulary) or token.is_digit) else 0
-
-
-@profile
-def vocabulary_level(
-    token: Token, frequency: dict[str, int], levels: list[range]
-) -> int:
-    "Return the correct vocabulary level that reflects the frequency of this token"
-
-    token_frequency = frequency.get(token.text.lower(), 0)
-    return next(
-        (i for i, range in enumerate(levels) if token_frequency in range),
-        0,
-    )

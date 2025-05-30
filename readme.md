@@ -131,18 +131,19 @@ The metrics included are
 
 * Vocabulary Level
     This is calculated if you supply a word frequency list for the language of the text. Frequency files for several languages can be found at <https://mortii.github.io/anki-morphs/user_guide/setup/prioritizing.html?highlight=frequency#custom-frequency-files>
-    We divide the frequency list into subsets that extremely vaguely correspond to the CEFR levels:
+    We divide the frequency list into subsets that extremely vaguely correspond to the CEFR levels, using frequency ranges that are currently hardcoded
 
-    | Result | CEFR level |
-    |--------|------------|
-    | 0      | A1         |
-    | 1      | A2         |
-    | 2      | B1         |
-    | 3      | B2         |
-    | 4      | C1         |
-    | 5      | C2         |
+    | Range       | CEFR level |
+    |-------------|------------|
+    | 0-1000      | A1         |
+    | 1000-2000   | A2         |
+    | 2000-5000   | B1         |
+    | 5000-10000  | B2         |
+    | 10000-20000 | C1         |
+    | >20000      | C2         |
 
-    Currently this option returns the 95th percentile estimated "level" of all the words in the text. So, a text with only very simple words would be assessed as level 0, and a text with more than 5% of "level 5" words would be assessed as level 5. It ignores words that are not in the frequency list.
+    Currently this option returns the 95th percentile estimated "level" of all the words in the text. So, a text with only very simple words would be assessed as level A1, and a text with more than 5% of "B2" words would be assessed as level B2. It ignores words that are not in the frequency list.
+    Texts with less than 250 words are not analysed since they can give misleading levels.
 
 Use the help command to get more details on the options for these commands:
 

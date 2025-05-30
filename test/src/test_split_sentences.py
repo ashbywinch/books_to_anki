@@ -1,7 +1,7 @@
 """Test split sentences module"""
 
 import pytest
-from book_to_flashcards.cards_untranslated_from_text import trim_title
+from book_to_flashcards import trim_title
 from split_sentences import consolidate_spans, make_nlp, split_sentence, split_sentences, split_text
 
 

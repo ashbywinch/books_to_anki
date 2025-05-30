@@ -14,9 +14,9 @@ import deepl
 from book_to_flashcards.Progress import Progress
 from book_to_flashcards.cards_jsonl import cards_from_jsonl, cards_to_jsonl
 
-from .Card import Card
+from .Card import Card, card_trim_title
 from .cards_to_anki import cards_to_anki
-from .cards_untranslated_from_text import card_trim_title, cards_untranslated_from_file, cards_skip_first_line_if_author
+from .cards_untranslated_from_text import cards_untranslated_from_file, cards_skip_first_line_if_author
 from .translate_cards import ReverseTextTranslator, translate_cards
 
 
