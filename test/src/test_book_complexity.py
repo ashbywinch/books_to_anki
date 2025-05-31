@@ -1,16 +1,16 @@
 """Tests for book_complexity module"""
 
+import pytest
 from glob import glob
-
+import io
 from book_complexity import get_book_complexity, make_nlp
 from book_complexity import ComplexityCalculators
 from book_complexity.book_complexity import (
     VocabLevelCalculator,
     get_complexities,
-    DEFAULT_SMALL_SAMPLE_SIZE_CUTOFF
+    DEFAULT_SMALL_SAMPLE_SIZE_CUTOFF,
+    frequencies_from_csv
 )
-import pytest
-
 from book_complexity.vocabulary_levels import VocabLevels
 
 
@@ -176,9 +176,6 @@ class TestBookComplexityOnMultipleLongerStrings:
         doc = next(ru_nlp.pipe([short_string]))
         assert ComplexityCalculators.sentence_grammar_depth(next(doc.sents)) == 2
 
-
-import io
-from book_complexity.book_complexity import frequencies_from_csv
 
 class TestFrequenciesFromCSV:
     def test_basic_parsing(self):

@@ -19,7 +19,7 @@ This module provides:
 import glob
 from pathlib import Path
 from line_profiler import profile # type: ignore
-from typing import Any, Optional, OrderedDict, TextIO, cast, Generator, Union, BinaryIO
+from typing import Any, Optional, OrderedDict, TextIO, cast, Generator, BinaryIO
 import orjsonl as jsonl
 import spacy # type: ignore
 from spacy.tokens import Token, Span # type: ignore

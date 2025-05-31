@@ -7,7 +7,7 @@ This module provides:
                           to determine an overall vocabulary level for the text, typically by finding
                           a specific percentile (e.g., 95th) of word difficulties.
 """
-from typing import Dict, Any, Iterator # Iterator for next(iter(...))
+from typing import Dict # Removed Any, Iterator
 from line_profiler import profile
 from spacy.tokens import Token
 
