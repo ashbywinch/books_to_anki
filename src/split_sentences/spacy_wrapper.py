@@ -56,9 +56,6 @@ def make_nlp(pipeline: str) -> Language:
     2. Adding the custom `tidy_doc_punctuation` component to the pipeline to
        modify how punctuation is tokenized.
     
-    An assertion is also made to ensure the pipeline's tokenizer is an instance
-    of `spacy.tokenizer.Tokenizer`, which is expected for standard pipelines.
-
     Args:
         pipeline: The name of the base spaCy pipeline to load 
                   (e.g., 'en_core_web_sm', 'ru_core_news_sm').

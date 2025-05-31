@@ -1,0 +1,10 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+There's an ordered list of things to do in todo.md. 
+If we finish what we're doing, make sure all our changes have been committed and we've pushed them to origin, made a PR to main, merged down from main, and deleted the branch we were working on. 
+Then start on the next task based on this file. Remove things from the file when you complete them
+
+[todo.md](mdc:todo.md)

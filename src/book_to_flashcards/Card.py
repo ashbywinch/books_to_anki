@@ -44,7 +44,9 @@ def trim_title(title: str, separator: Optional[str] = None) -> str:
         The trimmed title string. For example, `trim_title("Part1_Part2_End", "_")`
         would return "Part1_Part2".
     """
-    return title if separator is None else separator.join(title.split(separator)[:-1])
+    if separator is None or separator not in title:
+        return title
+    return separator.join(title.split(separator)[:-1])
 
 
 def card_trim_title(card: Card, separator: Optional[str] = None) -> Card:

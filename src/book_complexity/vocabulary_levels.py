@@ -21,12 +21,52 @@ class VocabLevels:
         Args:
             frequencies: A dictionary mapping lowercase word strings to their frequency count (int).
             levels: A dictionary mapping level names (str, e.g., "A1") to a `range` object 
-                    representing the frequency thresholds for that level.
+                    representing the frequency thresholds for that level. Ranges must be 
+                    contiguous, non-overlapping, and must collectively start at 0.
+                    The levels dictionary cannot be empty.
+        
+        Raises:
+            ValueError: If levels are overlapping, have gaps, do not start at 0, or if the levels dictionary is empty.
         """
+        if not levels:
+            raise ValueError("Vocabulary 'levels' dictionary cannot be empty.")
+
         self.frequencies: Dict[str, int] = frequencies
         self.levels: Dict[str, range] = levels
-        # Default level is the first key from the levels dictionary, used if a token's frequency doesn't fall into any defined range.
-        # This is on the assumption that most unknown words are proper nouns.
+
+        # Proceed with validation only if levels are defined (already guaranteed by the check above)
+        level_ranges_from_dict = list(self.levels.values())
+        # Sort by start, then by stop to ensure consistent ordering for validation
+        sorted_ranges = sorted(level_ranges_from_dict, key=lambda r: (r.start, r.stop))
+
+        if not sorted_ranges[0].start == 0:
+            raise ValueError(
+                f"Vocabulary level definitions must start at 0. "
+                f"Current levels start at {sorted_ranges[0].start}."
+            )
+
+        if len(self.levels) > 1: # Gap/overlap validation only needed for multiple levels
+            for i in range(1, len(sorted_ranges)):
+                previous_range = sorted_ranges[i-1]
+                current_range = sorted_ranges[i]
+
+                if current_range.start < previous_range.start:
+                    raise ValueError(
+                        f"Vocabulary level ranges are improperly ordered or defined: "
+                        f"{previous_range} followed by {current_range}"
+                    )
+                
+                if current_range.start < previous_range.stop:
+                    raise ValueError(
+                        f"Vocabulary levels overlap: {previous_range} and {current_range}. "
+                        f"Previous range ends at {previous_range.stop-1} and current starts at {current_range.start}."
+                    )
+                if current_range.start > previous_range.stop:
+                    raise ValueError(
+                        f"Vocabulary levels have a gap: {previous_range} ends at {previous_range.stop-1} "
+                        f"but {current_range} starts at {current_range.start}. Ranges must be contiguous."
+                    )
+        
         self.default_level: str = next(iter(self.levels.keys()))
 
     @profile
@@ -86,7 +126,7 @@ class VocabLevelCalculator(ComplexityCalculator):
         
         for key in sorted_keys:
             running_total += bar_chart[key]
-            if running_total > datapoints_at_percentile:
+            if running_total >= datapoints_at_percentile:
                 return key
         
         # Should be reached only if all items are exactly at the percentile boundary or rounding issues
