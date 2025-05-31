@@ -1,4 +1,12 @@
-"""Tests for cli_make_flashcards.py in book_to_flashcards."""
+"""
+Tests for the CLI interface in `cli_make_flashcards.py`.
+
+These tests utilize the `pyfakefs` pytest plugin, meaning all filesystem
+operations (e.g., creating temporary input files/folders via `tmp_path`,
+and any filesystem checks or writes performed by the CLI commands under test)
+operate on a mocked, in-memory filesystem. This ensures tests are isolated,
+fast, and do not interact with the actual disk.
+"""
 
 import pytest
 from click.testing import CliRunner
@@ -7,8 +15,6 @@ from book_to_flashcards.Card import Card
 from book_to_flashcards.cli_make_flashcards import cli_make_flashcards as cli_main
 import sys # Add sys import
 
-# Assuming your CLI entry point is a function named 'main' in cli_make_flashcards.py
-# If it's named differently (e.g., 'cli'), adjust the import and @patch target.
 
 @pytest.fixture
 def runner():
@@ -94,9 +100,7 @@ class TestCliMakeFlashcards:
             'to-anki', str(output_file)
         ])
 
-        assert result.exit_code == 0 # Assuming overwrite is default and silent
-        # Further assertions could check if mock_cards_to_anki was called, implying an overwrite happened.
-        # mock_cards_to_anki.assert_called_once() # Add this if we confirm overwrite logic
+        assert result.exit_code == 0 # overwrite is default and silent
 
     @patch('book_to_flashcards.cli_make_flashcards.cards_untranslated_from_file', side_effect=Exception("File processing error from folder item"))
     def test_cli_error_in_from_folder(self, mock_cards_untranslated_from_file, runner, tmp_path):
