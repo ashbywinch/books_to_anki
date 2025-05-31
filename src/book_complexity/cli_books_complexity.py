@@ -36,7 +36,7 @@ import click
     help="Name/path of the JSONL file to store the results.",
 )
 @click.option(
-    "--remove-title-suffix-after", # Consistent naming with get_books_complexity
+    "--remove-title-suffix-after",
     help="Optional string. If provided, book titles (derived from filenames) will be trimmed at the first occurrence of this string."
 )
 @click.option(
