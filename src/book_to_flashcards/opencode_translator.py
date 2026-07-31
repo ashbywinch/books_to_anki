@@ -287,7 +287,7 @@ def find_api_key() -> str:
     )
 
 
-def parse_translation_response(response: str, expected: int) -> list[tuple[int, str]]:
+def parse_translation_response(response: str, expected: int) -> list[tuple[int, tuple[str, str]]]:
     """Parse the model's numbered translation list.
 
     Returns a list of (index, translation) pairs, 1-based. Raises ValueError (or
@@ -338,11 +338,17 @@ def _source_matches(source: str, text: str) -> bool:
     The model is asked to copy the first ~24 characters of each fragment
     verbatim; we accept a fuzzy match because it may trim leading
     punctuation/whitespace or normalize quotes. Both strings are normalized
-    and leading non-alphanumeric characters are skipped before comparing the
-    first 12 characters.
+    and leading non-alphanumeric characters are skipped. A longer echoed
+    source is far more distinctive, so when it is long enough (>= 24 chars)
+    the whole echo must be a prefix of the card; the short 12-character
+    prefix fallback is only used when the echo itself is short.
     """
     s = _normalize(source)
     t = _normalize(text)
     s = s.lstrip("0123456789—–-«»\"'().,:;!?…")
     t = t.lstrip("0123456789—–-«»\"'().,:;!?…")
-    return bool(s) and (t.startswith(s[:12]) or s[:12] == t[:12])
+    if not s:
+        return False
+    if len(s) >= 24:
+        return t.startswith(s)
+    return t.startswith(s[:12])

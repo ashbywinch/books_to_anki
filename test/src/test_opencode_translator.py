@@ -233,6 +233,32 @@ class TestOpenCodeGoTranslator:
         with pytest.raises(ValueError):
             translator.translate_cards(cards, "English", "")
 
+    def test_long_echo_sharing_short_prefix_is_rejected(self):
+        # a 12-char prefix is shared, but the echoes diverge after it: the
+        # hardened check must require the full long echo to match the card
+        card = Card(
+            title="book", author="Author", start=0, end=60,
+            text="Chapter one: the beginning of a different tale",
+        )
+        echo = '[{"index":1,"source":"Chapter one: the beginning of a long story","translation":"one"}]'
+        translator, _ = make_translator([completion(echo), completion(echo)])
+        with pytest.raises(ValueError):
+            translator.translate_cards([card], "English", "")
+
+    def test_long_echo_with_full_prefix_passes(self):
+        card = Card(
+            title="book", author="Author", start=0, end=60,
+            text="Chapter one: the beginning of a long story",
+        )
+        translator, _ = make_translator(
+            [
+                completion(
+                    '[{"index":1,"source":"Chapter one: the beginning of","translation":"one"}]'
+                )
+            ]
+        )
+        assert translator.translate_cards([card], "English", "") == ["one"]
+
     def test_bad_batch_is_split_into_halves(self):
         # whole batch fails twice, then each half succeeds
         translator, calls = make_translator(
