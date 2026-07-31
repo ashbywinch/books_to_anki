@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Calculates various complexity metrics for texts in human language.
 
@@ -17,17 +19,24 @@ This module provides:
 """
 
 import glob
+from collections import OrderedDict
+from collections.abc import Generator
 from pathlib import Path
-from line_profiler import profile # type: ignore
-from typing import Any, Optional, OrderedDict, TextIO, cast, Generator, BinaryIO
-import orjsonl as jsonl
-import spacy # type: ignore
-from spacy.tokens import Token, Span # type: ignore
-from spacy.language import Language # type: ignore
+from typing import Any, BinaryIO, TextIO, cast
 
+import alive_progress  # type: ignore
+
+# import spacy 
+import click
+import orjsonl as jsonl
+import spacy  # type: ignore
+import unicodecsv  # type: ignore
+from line_profiler import profile  # type: ignore
+from spacy.language import Language  # type: ignore
+from spacy.tokens import Span, Token  # type: ignore
+from tabulate import tabulate
 
 # from line_profiler import profile
-
 from book_complexity.ComplexityCalculators import (
     ComplexityCalculator,
     ComplexityCalculators,
@@ -35,16 +44,8 @@ from book_complexity.ComplexityCalculators import (
     sentence_grammar_depth,
     words_known,
 )
-# import spacy 
-import click
-import alive_progress  # type: ignore
-
-import unicodecsv  # type: ignore
-
-from tabulate import tabulate
-
 from book_complexity.vocabulary_levels import VocabLevelCalculator, VocabLevels
-from book_to_flashcards import trim_title 
+from book_to_flashcards import trim_title
 
 # Word count threshold below which vocabulary level metrics are not calculated.
 # This is to avoid potentially misleading results from insufficient text data.
@@ -129,16 +130,15 @@ def generate_docs(nlp: Language, inputfile: TextIO) -> Generator[spacy.tokens.Do
     """
     for line in inputfile:
         docs = nlp.pipe([line.strip()])
-        for doc in docs:
-            yield doc
+        yield from docs
 
 
 @profile
 def get_book_complexity(
     inputfile: TextIO,
     nlp: Language,
-    vocab_levels:Optional[VocabLevels] = None,
-    vocabulary: Optional[set[str]] = None,
+    vocab_levels:VocabLevels | None = None,
+    vocabulary: set[str] | None = None,
     small_sample_size_cutoff: int = DEFAULT_SMALL_SAMPLE_SIZE_CUTOFF,
 ) -> OrderedDict[str, Any]:
     """Calculate and return a dictionary of complexity metrics for a single text.
@@ -185,7 +185,7 @@ def get_book_complexity(
 
     docs = generate_docs(nlp, inputfile)
     results = calculators.get_results(docs)
-    for k in [key for key in results.keys() if key.startswith("Cumulative")]:
+    for k in [key for key in results if key.startswith("Cumulative")]:
         results.pop(k)  # these were just to calculate the ratios, let's lose them
     return results
 
@@ -205,7 +205,7 @@ def get_book_complexity(
     type=click.File(mode="rb"), # unicodecsv often expects byte stream
     help="Path to a CSV file containing word frequencies for the text's language. Expected format: lemma,inflection per line, with frequency implied by order.",
 )
-def cli_book_complexity(inputfile: TextIO, pipeline: str, knownmorphs: Optional[BinaryIO], frequencycsv: Optional[BinaryIO]):
+def cli_book_complexity(inputfile: TextIO, pipeline: str, knownmorphs: BinaryIO | None, frequencycsv: BinaryIO | None):
     """Calculates and prints complexity metrics for a single text file.
 
     The results are printed to the console in a table format.
@@ -275,7 +275,7 @@ def frequencies_from_csv(frequencycsv_file: BinaryIO) -> dict[str, int]:
     return frequency_list
 
 
-def get_book_props(filename: str, remove_title_suffix_after: Optional[str] = None) -> dict[str, str]:
+def get_book_props(filename: str, remove_title_suffix_after: str | None = None) -> dict[str, str]:
     """Extracts book title and author from a filename and its containing directory path.
 
     The function assumes the book's title can be derived from the filename's stem
@@ -301,10 +301,10 @@ def get_book_props(filename: str, remove_title_suffix_after: Optional[str] = Non
 def get_complexities(
     files: list[str],
     nlp: Language,
-    known_morph_list: Optional[set[str]],
-    vocab: Optional[VocabLevels], # Made Optional to handle case where frequencycsv is not provided
+    known_morph_list: set[str] | None,
+    vocab: VocabLevels | None, # Made Optional to handle case where frequencycsv is not provided
     small_sample_size_cutoff: int,
-    remove_title_suffix_after: Optional[str] = None
+    remove_title_suffix_after: str | None = None
 ) -> Generator[dict[str, Any], Any, Any]:
     """Generates complexity data for a list of text files.
 
@@ -341,7 +341,7 @@ def get_complexities(
 # Keys are level names (e.g., "A1", "A2") and values identify ranges in a sorted
 # word frequency list that a learner at that level might be expected to know.
 levels = {
-    "A1": range(0, 1000),
+    "A1": range(1000),
     "A2": range(1000, 2000),
     "B1": range(2000, 5000),
     "B2": range(5000, 10000),
@@ -352,10 +352,10 @@ levels = {
 def get_books_complexity(
     inputfolder: str,
     pipeline: str,
-    knownmorphs_file: Optional[BinaryIO], 
-    frequencycsv_file: Optional[BinaryIO],
+    knownmorphs_file: BinaryIO | None, 
+    frequencycsv_file: BinaryIO | None,
     outputfilename: str,
-    remove_title_suffix_after: Optional[str] = None,
+    remove_title_suffix_after: str | None = None,
     small_sample_size_cutoff: int = DEFAULT_SMALL_SAMPLE_SIZE_CUTOFF,
 ):
     """Calculates complexity for all .txt files in a folder and writes results to a JSONL file.
@@ -373,19 +373,20 @@ def get_books_complexity(
         small_sample_size_cutoff: Word count cutoff for vocabulary level calculation.
 
     Raises:
-        Exception: If the outputfilename already exists.
+        FileExistsError: If the outputfilename already exists.
+        FileNotFoundError: If no .txt files are found in the input folder.
     """
     if Path(outputfilename).exists():
-        raise Exception(f"File {outputfilename} already exists")
+        raise FileExistsError(f"File {outputfilename} already exists")
     files = glob.glob(inputfolder + "/**/*.txt", recursive=True)
     if not files:
-        raise Exception(f"No .txt files found in {inputfolder}")
+        raise FileNotFoundError(f"No .txt files found in {inputfolder}")
 
     with alive_progress.alive_bar(len(files), bar="bubbles", spinner="classic") as bar:
         nlp = make_nlp(pipeline)
         known_morph_list = morphs_from_csv(knownmorphs_file) if knownmorphs_file else None
         
-        vocab_levels_instance: Optional[VocabLevels] = None
+        vocab_levels_instance: VocabLevels | None = None
         if frequencycsv_file:
             frequencies = frequencies_from_csv(frequencycsv_file)
             vocab_levels_instance = VocabLevels(frequencies, levels)

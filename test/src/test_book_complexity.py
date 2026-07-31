@@ -1,15 +1,16 @@
 """Tests for book_complexity module"""
 
-import pytest
-from glob import glob
 import io
-from book_complexity import get_book_complexity, make_nlp
-from book_complexity import ComplexityCalculators
+from glob import glob
+
+import pytest
+
+from book_complexity import ComplexityCalculators, get_book_complexity, make_nlp
 from book_complexity.book_complexity import (
-    VocabLevelCalculator,
-    get_complexities,
     DEFAULT_SMALL_SAMPLE_SIZE_CUTOFF,
-    frequencies_from_csv
+    VocabLevelCalculator,
+    frequencies_from_csv,
+    get_complexities,
 )
 from book_complexity.vocabulary_levels import VocabLevels
 
@@ -60,7 +61,7 @@ class TestBookComplexityOnMultipleLongerStrings:
 
     def simple_test_vocabulary_level(self):
         frequencies = {"peas": 500, "likes": 20}
-        levels = [range(0, 400), range(400, 1000)]
+        levels = [range(400), range(400, 1000)]
         calculators = ComplexityCalculators()
         calculators.add(VocabLevelCalculator(VocabLevels(frequencies, levels)))
 
@@ -68,7 +69,7 @@ class TestBookComplexityOnMultipleLongerStrings:
 
     def test_vocabulary_level_basic(self, en_nlp):
         frequencies = {"peas": 500, "likes": 20}
-        levels = { 'A1':range(0, 400), 'A2':range(400, 1000)}
+        levels = { 'A1':range(400), 'A2':range(400, 1000)}
         teststrings = ["Bob likes green peas"] # 4 words
 
         complexity = get_book_complexity(
@@ -80,7 +81,7 @@ class TestBookComplexityOnMultipleLongerStrings:
 
     def test_vocabulary_level_percentile(self, en_nlp):
         frequencies = {"peas": 500, "likes": 20, "supercalifragilistic": 2000}
-        levels = { 'A1':range(0, 400), 'A2':range(400, 1000), 'B1': range(1000, 5000)}
+        levels = { 'A1':range(400), 'A2':range(400, 1000), 'B1': range(1000, 5000)}
 
         teststrings = ["Bob likes green peas " * 5 + " supercalifragilistic"] # 21 words
 
@@ -93,7 +94,7 @@ class TestBookComplexityOnMultipleLongerStrings:
 
     def test_vocabulary_level_A1(self, en_nlp):
         frequencies = {"apple": 50, "banana": 60, "cherry": 70, "date": 80, "elderberry": 90, "fig": 100, "grape": 110, "honeydew": 120, "kiwi": 130, "lemon": 140, "mango": 150} # All A1
-        levels = {'A1': range(0, 400), 'A2': range(400, 1000), 'B1': range(1000, 5000)}
+        levels = {'A1': range(400), 'A2': range(400, 1000), 'B1': range(1000, 5000)}
         teststrings = ["Apple banana cherry date elderberry fig grape honeydew kiwi lemon mango."] # 11 words
         complexity = get_book_complexity(
             teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels),
@@ -104,7 +105,7 @@ class TestBookComplexityOnMultipleLongerStrings:
 
     def test_vocabulary_level_B1(self, en_nlp):
         frequencies = {"persimmon": 1500, "boysenberry": 1600, "lingonberry": 1700, "mulberry": 1800, "nectarine": 1900, "olive": 2000, "papaya": 2100, "peach": 2200, "pear": 2300, "pineapple": 2400, "plum": 2500} # All B1
-        levels = {'A1': range(0, 400), 'A2': range(400, 1000), 'B1': range(1000, 5000)}
+        levels = {'A1': range(400), 'A2': range(400, 1000), 'B1': range(1000, 5000)}
         teststrings = ["Persimmon boysenberry lingonberry mulberry nectarine olive papaya peach pear pineapple plum."] # 11 words
         complexity = get_book_complexity(
             teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels),
@@ -115,7 +116,7 @@ class TestBookComplexityOnMultipleLongerStrings:
 
     def test_vocabulary_level_empty_string_input(self, en_nlp):
         frequencies = {"apple": 50}
-        levels = {'A1': range(0, 400)}
+        levels = {'A1': range(400)}
         teststrings = [""] # 0 words
         complexity = get_book_complexity(
             teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels),
@@ -126,7 +127,7 @@ class TestBookComplexityOnMultipleLongerStrings:
 
     def test_vocabulary_level_empty_list_input(self, en_nlp):
         frequencies = {"apple": 50}
-        levels = {'A1': range(0, 400)}
+        levels = {'A1': range(400)}
         teststrings = [] # 0 words
         complexity = get_book_complexity(
             teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels),
@@ -137,7 +138,7 @@ class TestBookComplexityOnMultipleLongerStrings:
 
     def test_vocabulary_level_no_words_in_frequency_list(self, en_nlp):
         frequencies = {"known": 100, "words": 200} # A1
-        levels = {'A1': range(0, 400), 'A2': range(400, 1000)}
+        levels = {'A1': range(400), 'A2': range(400, 1000)}
         # Text has 11 words
         teststrings = ["Xyz Abc Qwerty Rty Uio Plk Mnb Vcx Zaq Wsx Edc."]
         complexity = get_book_complexity(
@@ -150,7 +151,7 @@ class TestBookComplexityOnMultipleLongerStrings:
     def test_vocabulary_level_just_above_cutoff(self, en_nlp):
         # 11 words
         frequencies = {"apple": 50, "banana": 60, "cherry": 70, "date": 80, "elderberry": 90, "fig": 100, "grape": 110, "honeydew": 120, "kiwi": 130, "lemon": 140, "mango": 500} # Most A1, one A2 ("mango")
-        levels = {'A1': range(0, 400), 'A2': range(400, 1000)}
+        levels = {'A1': range(400), 'A2': range(400, 1000)}
         teststrings = ["Apple banana cherry date elderberry fig grape honeydew kiwi lemon mango."]
         complexity = get_book_complexity(
             teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels),
@@ -208,7 +209,7 @@ class TestFrequenciesFromCSV:
 
     def test_unicode_characters(self):
         """Test parsing CSV with unicode characters."""
-        csv_content = "lemma,inflection\nяблоко,яблоки\nбанан,бананы".encode('utf-8')
+        csv_content = "lemma,inflection\nяблоко,яблоки\nбанан,бананы".encode()
         mock_file = io.BytesIO(csv_content)
         expected = {
             "яблоки": 0,

@@ -7,15 +7,16 @@ This module provides:
                           to determine an overall vocabulary level for the text, typically by finding
                           a specific percentile (e.g., 95th) of word difficulties.
 """
-from typing import Dict # Removed Any, Iterator
+
 from line_profiler import profile
 from spacy.tokens import Token
 
 from book_complexity.ComplexityCalculators import ComplexityCalculator
 
+
 class VocabLevels:
     """Stores word frequencies and vocabulary level definitions, and looks up token levels."""
-    def __init__(self, frequencies: Dict[str, int], levels: Dict[str, range]):
+    def __init__(self, frequencies: dict[str, int], levels: dict[str, range]):
         """Initialize VocabLevels.
 
         Args:
@@ -23,8 +24,8 @@ class VocabLevels:
             levels: A dictionary mapping level names (str, e.g., "A1") to a `range` object 
                     representing the frequency thresholds for that level.
         """
-        self.frequencies: Dict[str, int] = frequencies
-        self.levels: Dict[str, range] = levels
+        self.frequencies: dict[str, int] = frequencies
+        self.levels: dict[str, range] = levels
         # Default level is the first key from the levels dictionary, used if a token's frequency doesn't fall into any defined range.
         # This is on the assumption that most unknown words are proper nouns.
         self.default_level: str = next(iter(self.levels.keys()))
@@ -57,7 +58,7 @@ class VocabLevelCalculator(ComplexityCalculator):
         self.levels: VocabLevels = levels
         self.small_sample_size_cutoff: int = small_sample_size_cutoff
 
-    def percentile(self, bar_chart: Dict[str, int], percent: float) -> str:
+    def percentile(self, bar_chart: dict[str, int], percent: float) -> str:
         """Calculates the key (level) at a given percentile in a frequency map (bar_chart).
 
         The bar_chart maps vocabulary levels (str) to the frequency in our text of words at that level (int).
@@ -95,7 +96,7 @@ class VocabLevelCalculator(ComplexityCalculator):
         # Returning the last key in sorted order is a reasonable fallback.
         return sorted_keys[-1] 
 
-    def process_token(self, token: Token) -> Dict[str, int]:
+    def process_token(self, token: Token) -> dict[str, int]:
         """Processes a single token, returning a frequency map of its vocabulary level.
         
         Args:
@@ -106,7 +107,7 @@ class VocabLevelCalculator(ComplexityCalculator):
         """
         return {self.levels.get_level(token): 1}
 
-    def combine_values(self, dict1: Dict[str, int], dict2: Dict[str, int]) -> Dict[str, int]:
+    def combine_values(self, dict1: dict[str, int], dict2: dict[str, int]) -> dict[str, int]:
         """Merges two vocabulary level frequency maps by summing counts at each level.
         
         Args:
@@ -121,7 +122,7 @@ class VocabLevelCalculator(ComplexityCalculator):
             for key in set(dict1) | set(dict2)
         }
 
-    def and_finally(self, accumulated_levels: Dict[str, int]) -> str:
+    def and_finally(self, accumulated_levels: dict[str, int]) -> str:
         """Calculates the final representative vocabulary level from the aggregated frequency map.
         
         Returns an empty string if the total word count is below `small_sample_size_cutoff`.
@@ -140,7 +141,7 @@ class VocabLevelCalculator(ComplexityCalculator):
         except ValueError: # Handles empty accumulated_levels if it somehow gets here despite cutoff
             return "" 
 
-    def null_value(self) -> Dict[str, int]:
+    def null_value(self) -> dict[str, int]:
         """Returns the neutral element for vocabulary level aggregation (an empty dict).
         
         Returns:

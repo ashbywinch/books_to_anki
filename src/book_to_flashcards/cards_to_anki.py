@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Turn text files containing human language into an Anki flashcard deck
 allowing the user to read the book in small chunks 
 and test their understanding of the translation"""
@@ -6,7 +8,7 @@ import hashlib
 import html
 from collections.abc import Generator
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 import click
 import genanki  # type: ignore
@@ -89,14 +91,14 @@ def make_deckname(author, title, structure: bool):
     """Name this Anki deck, either just the filename (without extension)
     or else a nested structure matching the input folder structure"""
     if structure:
-        return "::".join(["books", author, title])
+        return f"books::{author}::{title}"
 
     return title
 
 
 def add_prev_next(cards: Generator[Card, Any, Any]) -> Generator[AnkiNote, Any, Any]:
-    prev_card: Optional[Card] = None
-    current_card: Optional[Card] = None
+    prev_card: Card | None = None
+    current_card: Card | None = None
     for next_card in cards:
         if current_card:
             yield AnkiNote(
