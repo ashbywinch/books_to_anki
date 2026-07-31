@@ -27,13 +27,14 @@ import logging
 import os
 import sys
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from book_to_flashcards.Card import Card
 from book_to_flashcards.cards_jsonl import cards_from_jsonl_file
 from book_to_flashcards.opencode_translator import OpenCodeGoError, OpenCodeGoTranslator
-from book_to_flashcards.translate_cards import translate_cards
+from book_to_flashcards.translate_cards import Translator, translate_cards
 
 logger = logging.getLogger("translate_books")
 
@@ -49,7 +50,7 @@ def missing_indices(cards) -> list[int]:
     return [i for i, card in enumerate(cards) if not card.translation]
 
 
-def translate_book(cards, translator: OpenCodeGoTranslator, lang: str):
+def translate_book(cards, translator: Translator, lang: str):
     """Translate every card of one book, retrying holes individually.
 
     The main pass is the batch machinery from ``translate_cards`` (60-card
@@ -75,7 +76,7 @@ def translate_book(cards, translator: OpenCodeGoTranslator, lang: str):
     return translated, not missing_indices(translated)
 
 
-def process_book(src: Path, out: Path, translator: OpenCodeGoTranslator, lang: str):
+def process_book(src: Path, out: Path, translator: Translator, lang: str):
     """Translate one book file; returns (status, cards_written)."""
     if out.exists() and out.stat().st_size > 0:
         existing = list(cards_from_jsonl_file(out))
@@ -114,7 +115,15 @@ def process_book(src: Path, out: Path, translator: OpenCodeGoTranslator, lang: s
     return "ok", len(cards)
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(
+    argv: list[str] | None = None,
+    translator_factory: Callable[..., Translator] | None = None,
+) -> int:
+    """Translate every book jsonl under --input into --output.
+
+    ``translator_factory`` is an injection point for tests: it is called with
+    ``model=...`` and must return a Translator (default: OpenCodeGoTranslator).
+    """
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--input", required=True, help="folder of per-book jsonl files")
     ap.add_argument("--output", required=True, help="staging folder to write translated books")
@@ -140,7 +149,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.limit:
         jobs = jobs[: args.limit]
 
-    translator = OpenCodeGoTranslator(model=args.model)
+    if translator_factory is None:
+        translator_factory = OpenCodeGoTranslator
+    translator = translator_factory(model=args.model)
     logger.info(
         "translating %d books (%s -> %s) with %d workers",
         len(jobs), args.lang, args.model, args.workers,
