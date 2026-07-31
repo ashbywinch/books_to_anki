@@ -1,11 +1,13 @@
+import os
 from collections.abc import Generator
 from glob import glob
-import os
-from typing import Any
 from pathlib import Path
+from typing import Any
+
 import orjsonl as jsonl
 
-from book_to_flashcards import Card
+from book_to_flashcards.Card import Card
+
 
 def cards_to_jsonl_file(
     iterator: Generator[Card, Any, Any], outputfile: str, progress=None
@@ -20,34 +22,32 @@ def cards_to_jsonl_folder(
 ):
     cardTitle = None
     cardAuthor = None
-    file = None
+    active = False
     outputfile: Path = Path()
     try:
         for card in iterator:
-            if file is None or card.title != cardTitle or card.author != cardAuthor:
+            if not active or card.title != cardTitle or card.author != cardAuthor:
                 # We're in a different book and need to switch to a new file
-                if file:
+                if active:
                     if progress:
                         progress()
-                    file.close()
                     if outputfile.suffixes[-1] == ".tmp":
                         os.replace(outputfile, Path(outputfile.parent, outputfile.stem))
                 outputfile = Path(outputfolder, card.author, card.title).with_suffix(".jsonl")
                 if Path.exists(outputfile):
                     outputfile = outputfile.with_suffix(outputfile.suffix + ".tmp")
                 outputfile.parent.mkdir(exist_ok=True, parents=True)
-                file = open(outputfile, mode="wb")
+                with open(outputfile, mode="wb"):
+                    pass  # create/truncate the file before appending to it
+                active = True
                 cardTitle = card.title
                 cardAuthor = card.author
 
             jsonl.append(outputfile, card)
-        if file:
-            file.close()
-            if outputfile.suffixes[-1] == ".tmp":
-                os.replace(outputfile, Path(outputfile.parent, outputfile.stem))
+        if active and outputfile.suffixes[-1] == ".tmp":
+            os.replace(outputfile, Path(outputfile.parent, outputfile.stem))
     finally:
-        if file:
-            file.close()
+        pass
     if progress:
         progress()
 
@@ -62,7 +62,7 @@ def cards_to_jsonl(cards, outputfileorfolder, separator: str="", progress=None):
 
 def cards_from_jsonl_file(inputfile) -> Generator[Card, Any, Any]:
     for card in jsonl.stream(inputfile):
-        yield Card.Card(**card)  # type: ignore[arg-type]
+        yield Card(**card)  # type: ignore[arg-type]
 
 
 def cards_from_jsonl_folder(inputfolder) -> Generator[Card, Any, Any]:

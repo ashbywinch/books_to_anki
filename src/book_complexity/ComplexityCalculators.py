@@ -1,3 +1,4 @@
+# ruff: noqa: N999  # public module name, imported as book_complexity.ComplexityCalculators
 """
 Defines the core framework for calculating text complexity metrics.
 
@@ -13,12 +14,14 @@ This module provides:
 - Helper functions for specific calculations like `sentence_grammar_depth`
   and `words_known`.
 """
+from collections import OrderedDict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import reduce
-from typing import Any, OrderedDict, Iterable
+from typing import Any
 
-from line_profiler import profile # type: ignore
-from spacy.tokens import Doc, Token, Span # type: ignore
+from line_profiler import profile  # type: ignore
+from spacy.tokens import Doc, Span, Token  # type: ignore
 
 
 @dataclass
@@ -145,8 +148,9 @@ class ComplexityCalculators:
     are added to the collection.
     """
 
-    calculators = OrderedDict[str, ComplexityCalculator]()
-    ratios = OrderedDict[str, ComplexityRatio]()
+    def __init__(self) -> None:
+        self.calculators: OrderedDict[str, ComplexityCalculator] = OrderedDict()
+        self.ratios: OrderedDict[str, ComplexityRatio] = OrderedDict()
 
     def add(self, name: str, c: ComplexityCalculator):
         """Adds a ComplexityCalculator instance to the collection.
@@ -172,7 +176,7 @@ class ComplexityCalculators:
         elif key in self.ratios:
             return self.ratios[key]
         else:
-            raise Exception(f"No calculator or ratio: {key}")
+            raise KeyError(f"No calculator or ratio: {key}")
 
     @profile
     def __get_token_values(self, token: Token) -> ComplexityResults:
@@ -189,7 +193,7 @@ class ComplexityCalculators:
         )
 
         token_results = reduce(
-            self.__merge, map(lambda token_item: self.__get_token_values(token_item), sent)
+            self.__merge, (self.__get_token_values(token_item) for token_item in sent)
         )
         return self.__merge(sentence_results, token_results)
 
@@ -198,7 +202,7 @@ class ComplexityCalculators:
         """Applies all calculators to a single spaCy Doc and returns aggregated results."""
         return reduce(
             self.__merge,
-            map(lambda sent_item: self.__get_sentence_values(sent_item), doc.sents),
+            (self.__get_sentence_values(sent_item) for sent_item in doc.sents),
             self.__get_initial_values(),
         )
 
@@ -248,7 +252,7 @@ class ComplexityCalculators:
         """
         results = reduce(
             lambda a, b: self.__merge(a, b),
-            map(lambda doc_item: self.__get_values(doc_item), docs),
+            (self.__get_values(doc_item) for doc_item in docs),
             self.__get_initial_values(),
         )
         results = self.__and_finally(results)

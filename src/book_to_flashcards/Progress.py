@@ -1,3 +1,6 @@
+# ruff: noqa: N999  # public module name, imported as book_to_flashcards.Progress
+from __future__ import annotations
+
 """Provides a simple wrapper for managing progress bar updates.
 
 This module contains the `Progress` class, designed to decouple the point of
@@ -5,7 +8,7 @@ progress bar initialization (which requires knowing the total number of steps)
 from the point where progress updates occur. This allows for cleaner integration
 of progress bars like `alive_progress` into iterative processes.
 """
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 
 class Progress:
@@ -25,7 +28,7 @@ class Progress:
     it needs to exist at all.
     """
 
-    bar: Optional[Callable[[], None]] = None
+    bar: Callable[[], None] | None = None
     num_steps: int = 0
 
     def __call__(self, *args: Any, **kwds: Any) -> None:

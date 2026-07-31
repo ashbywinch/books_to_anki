@@ -3,16 +3,19 @@
 import glob
 import os
 from pathlib import Path
-import pytest  # type: ignore
 
+import pytest  # type: ignore
 
 from book_to_flashcards import (
     ReverseTextTranslator,
     cards_untranslated_from_file,
 )
+from book_to_flashcards.cards_jsonl import (  # type: ignore
+    cards_from_jsonl,
+    cards_to_jsonl,
+)
 from book_to_flashcards.cards_to_anki import cards_to_anki
 from book_to_flashcards.cli_make_flashcards import translate_cards
-from book_to_flashcards.cards_jsonl import cards_from_jsonl, cards_to_jsonl  # type: ignore
 
 
 @pytest.fixture

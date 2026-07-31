@@ -5,10 +5,11 @@ objects (nlp pipelines) tailored for the sentence splitting tasks in this projec
 It includes a custom spaCy pipeline component, `tidy_doc_punctuation`,
 which modifies tokenization behavior for punctuation.
 """
-from spacy.tokenizer import Tokenizer # type: ignore[import-untyped]
-from spacy.tokens import Doc
-from spacy.language import Language
 import spacy
+from spacy.language import Language
+from spacy.tokenizer import Tokenizer  # type: ignore[import-untyped]
+from spacy.tokens import Doc
+
 
 @Language.component("tidy_punctuation")
 def tidy_doc_punctuation(doc: Doc) -> Doc:
