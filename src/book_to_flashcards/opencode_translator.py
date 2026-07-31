@@ -345,8 +345,8 @@ def _source_matches(source: str, text: str) -> bool:
     """
     s = _normalize(source)
     t = _normalize(text)
-    s = s.lstrip("0123456789—–-«»\"'().,:;!?…")
-    t = t.lstrip("0123456789—–-«»\"'().,:;!?…")
+    s = s.lstrip("0123456789—–-«»\"'().,:;!?…[]")
+    t = t.lstrip("0123456789—–-«»\"'().,:;!?…[]")
     if not s:
         return False
     if len(s) >= 24:

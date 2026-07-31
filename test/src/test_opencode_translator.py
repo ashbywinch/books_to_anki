@@ -259,6 +259,22 @@ class TestOpenCodeGoTranslator:
         )
         assert translator.translate_cards([card], "English", "") == ["one"]
 
+    def test_echo_with_list_numbering_prefix_passes(self):
+        # the model sometimes echoes the prompt's "[N] " numbering before the
+        # fragment text; the check must tolerate it (observed in production)
+        card = Card(
+            title="book", author="Author", start=0, end=60,
+            text="(1598 года, 20 февраля",
+        )
+        translator, _ = make_translator(
+            [
+                completion(
+                    '[{"index":1,"source":"[1] (1598 года, 20 ф","translation":"one"}]'
+                )
+            ]
+        )
+        assert translator.translate_cards([card], "English", "") == ["one"]
+
     def test_bad_batch_is_split_into_halves(self):
         # whole batch fails twice, then each half succeeds
         translator, calls = make_translator(
