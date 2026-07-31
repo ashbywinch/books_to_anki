@@ -33,23 +33,25 @@ jobs:
             echo "Manual trigger — skipping review check (no PR number)"
             exit 0
           fi
-          # Match bot comments that reference this commit SHA in their body.
-          # PR-Agent's persistent review includes the SHA: "Review updated until commit .../SHA"
-          # and code suggestions include: "<!-- SHA -->".
-          # This avoids race conditions from concurrent runs (unlike timestamp-based filtering).
-          THIS_RUN_CMTS=$(gh api "repos/${{ github.repository }}/issues/$PR_NUM/comments" --jq "[.[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$SHORT_SHA\")))]" 2>/dev/null || echo "[]")
-          echo "$THIS_RUN_CMTS" | jq -e 'length == 0' > /dev/null 2>&1 && NO_COMMENTS=true || NO_COMMENTS=false
-          if echo "$THIS_RUN_CMTS" | jq -e 'any(.[].body; test("PR Reviewer Guide|PR Code Suggestions"))' > /dev/null 2>&1; then
+          # Success = the persistent "PR Reviewer Guide" comment covers this commit.
+          # A comment counts when its body references the commit SHA ("Review updated
+          # until commit .../SHA") or was created after this run started (the first
+          # review on a PR is posted without the SHA marker). The SHA match is the
+          # primary attribution; the created-at match covers the first-review case.
+          RUN_STARTED=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}" --jq '.created_at' 2>/dev/null || echo "")
+          REVIEW_COUNT=$(gh api "repos/${{ github.repository }}/issues/$PR_NUM/comments" --jq "[.[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"PR Reviewer Guide\")) and ((.body | contains(\"$SHORT_SHA\")) or (\"$RUN_STARTED\" != \"\" and .created_at >= \"$RUN_STARTED\")))] | length" 2>/dev/null || echo "0")
+          if [ -n "$REVIEW_COUNT" ] && [ "$REVIEW_COUNT" -ne 0 ]; then
             echo "Review check passed"
-          elif echo "$THIS_RUN_CMTS" | jq -e 'any(.[].body; test("failed"; "i"))' > /dev/null 2>&1; then
-            echo "::error::PR-Agent reported a failure:"
-            echo "$THIS_RUN_CMTS" | jq -r '.[].body'
-            exit 1
-          elif [ "$NO_COMMENTS" = true ]; then
-            echo "::error::PR-Agent posted no comments for this commit — review was skipped or failed silently"
-            exit 1
-          else
-            echo "::error::PR-Agent comment found but did not match success or failure pattern"
-            echo "$THIS_RUN_CMTS" | jq -r '.[].body'
-            exit 1
+            exit 0
           fi
+          # No review for this commit. Surface what PR-Agent actually did, then fail.
+          FAILURES=$(gh api "repos/${{ github.repository }}/issues/$PR_NUM/comments" --jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | test("Failed to generate"; "i")))] | sort_by(.created_at) | reverse | .[0:3] | map("  " + .created_at + "  " + .body) | join("\n")' 2>/dev/null || echo "")
+          echo "::error::No PR-Agent review was posted for commit $SHORT_SHA."
+          if [ -n "$FAILURES" ]; then
+            echo "The review step failed instead of producing a review. Recent PR-Agent failure comments:"
+            echo "$FAILURES"
+            echo "See the 'Run the-pr-agent/pr-agent' step logs for the underlying error."
+          else
+            echo "No 'PR Reviewer Guide' comment exists for this commit — the review was skipped, failed before posting, or did not complete. See the 'Run the-pr-agent/pr-agent' step logs."
+          fi
+          exit 1
