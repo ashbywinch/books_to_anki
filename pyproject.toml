@@ -9,7 +9,7 @@ authors = [
 ]
 description = "Tools for learning languages from books"
 readme = "README.md"
-requires-python = "==3.9"
+requires-python = "==3.9.*"
 license = {text = "BSD-3-Clause"}
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -17,7 +17,6 @@ classifiers = [
 dependencies = [
     'Click',
     'spacy',
-    'deepl',
     'unicodecsv',
     'genanki',
     'jinja2',

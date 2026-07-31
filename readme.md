@@ -35,7 +35,7 @@ From a command line, run
 
 Use the instructions at the top of the page here <https://spacy.io/usage/> to configure and install the pipeline for the **language your books are written in**. Make a note of the name of the pipeline (something like "fi_core_news_sm" for Finnish, or "ru_core_news_sm" for Russian).
 
-You will need a free DeepL account (<https://www.deepl.com/signup?cta=free-doctrans-signup>) which will give you an API key that allows you to translate a fixed amount of text per month. At the time of writing the monthly allowance is 500,000 characters, which is enough for quite a bit of literature.
+You will need the [opencode](https://opencode.ai) CLI installed and logged in with an OpenCode Go account (run `opencode` once and follow the login flow). Translations are made with deepseek models served by the OpenCode Go API, and the API key is picked up automatically from opencode's auth file, or from the `OPENCODE_API_KEY` environment variable if you prefer.
 
 ## book-to-flashcard
 
@@ -49,21 +49,21 @@ Anki (<https://apps.ankiweb.net/>) is a flashcard application that uses spaced r
 
 **book-to-flashcard** uses AI language parsing to try and split long sentences in such a way that they can be individually understood and translated without context.
 
-DeepL is used to translate each card to a language of the user's choice. The list of available languages can be found here: <https://developers.deepl.com/docs/resources/supported-languages#target-languages>
+Translations are made with deepseek models through the OpenCode Go API (the `opencode-go` provider). Cards are translated in batches, and each batch is translated in the context of the text that immediately precedes it in the book, so pronouns, references and register stay consistent across cards without a round trip per card.
 
 The length of the "text chunks" and the size of the font on the cards is configurable.
 
 #### Examples
 
-See <https://developers.deepl.com/docs/resources/supported-languages#target-languages> for the list of language codes that the translate option understands.
-
 ```Powershell
-book-to-flashcard from-text 'my-russian-book.txt' pipeline 'ru_core_news_sm' translate --deeplkey 'YOUR_KEY' --lang 'EN-GB' to-anki --fontsize=20 'all_my_books.apkg'
+book-to-flashcard from-text 'my-russian-book.txt' pipeline 'ru_core_news_sm' translate --lang 'English' to-anki --fontsize=20 'all_my_books.apkg'
 ```
 
 ```Powershell
-book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' translate --deeplkey 'YOUR_KEY' --lang 'EN-GB' to-anki 'all_my_books.apkg'
+book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' translate --lang 'English' to-anki 'all_my_books.apkg'
 ```
+
+The `--lang` option is a free-text description of the language to translate into (e.g. `English`, `Spanish`, `French`). Use `--model` to pick a different model (the default is `deepseek-v4-flash`; `deepseek-v4-pro` is also available).
 
 ### Advanced usage
 
@@ -73,19 +73,19 @@ Reading and writing to an intermediate jsonl format is also supported. For examp
 
 ```Powershell
 > book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' to-jsonl 'all_my_books.jsonl'
-> book-to-flashcard from-jsonl 'all_my_books.jsonl' translate --deeplkey 'YOUR_KEY' lang='EN-GB' to-anki 'all_my_books_english.apkg'
-> book-to-flashcard from-jsonl 'all_my_books.jsonl' translate --deeplkey 'YOUR_KEY' lang='ES' to-anki 'all_my_books_spanish.apkg'
+> book-to-flashcard from-jsonl 'all_my_books.jsonl' translate --lang 'English' to-anki 'all_my_books_english.apkg'
+> book-to-flashcard from-jsonl 'all_my_books.jsonl' translate --lang 'Spanish' to-anki 'all_my_books_spanish.apkg'
 ```
 
-* generate a file of translated cards, and then use that file to experiment with output in a variety of font sizes without re-translating the cards (which would use up your DeepL API key)
+* generate a file of translated cards, and then use that file to experiment with output in a variety of font sizes without re-translating the cards (which would use up your translation quota)
 
 ```Powershell
-> book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' translate --deeplkey 'YOUR_KEY' lang='EN-GB' to-jsonl 'all_my_books.jsonl'
+> book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' translate --lang 'English' to-jsonl 'all_my_books.jsonl'
 > book-to-flashcard from-jsonl 'all_my_books.jsonl' to-anki --fontsize 30 'all_my_books_big.apkg'
 > book-to-flashcard from-jsonl 'all_my_books.jsonl' to-anki -fontsize 14 'all_my_books_small.apkg'
 ```
 
-There is also a dummy translation option that can be used to make experiments without using up a DeepL API key. This provides "translations" that are just the original text reversed, so "Hi!" becomes "!iH".
+There is also a dummy translation option that can be used to make experiments without using up translation quota. This provides "translations" that are just the original text reversed, so "Hi!" becomes "!iH".
 
 ```Powershell
 > book-to-flashcard from-folder './docs/books/' pipeline 'ru_core_news_sm' dummy-translate to-jsonl 'all_my_books.jsonl'

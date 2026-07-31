@@ -1,10 +1,10 @@
 import glob
+from collections.abc import Generator
 from pathlib import Path
+from typing import Any
+
 from book_to_flashcards.Card import Card
 from split_sentences import make_nlp, split_text
-
-from collections.abc import Generator
-from typing import Any
 
 
 # If the first card in a given book has the author name as the text, don't yield it
@@ -49,13 +49,14 @@ def cards_untranslated_from_folder(
         )
 
 def cards_untranslated_from_file(
-    inputfile, pipeline, maxfieldlen
+    inputfile, pipeline, maxfieldlen, nlp=None
 ) -> Generator[Card, Any, Any]:
     """Take a single text file and produce a set of flash cards
     containing chunks not longer than maxfieldlen, with no translations included
     (so, just the front)
-    This is much quicker and avoids 'using up' a DeepL API key if you don't need it"""
-    nlp = make_nlp(pipeline)
+    This is much quicker and avoids using up translation quota if you don't need it"""
+    if nlp is None:
+        nlp = make_nlp(pipeline)
 
     file = open(inputfile, mode="r", encoding="utf-8")
     docs = nlp.pipe(file)

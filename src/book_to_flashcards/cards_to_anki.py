@@ -2,20 +2,20 @@
 allowing the user to read the book in small chunks 
 and test their understanding of the translation"""
 
-from collections.abc import Generator
-from dataclasses import dataclass
 import hashlib
 import html
+from collections.abc import Generator
+from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 import click
 import genanki  # type: ignore
-import deepl
 import jinja2
 from importlib_resources import files
 
-from book_to_flashcards.Card import Card
 import book_to_flashcards.resources
+from book_to_flashcards.Card import Card
+from book_to_flashcards.opencode_translator import OpenCodeGoError
 
 
 @dataclass
@@ -183,13 +183,11 @@ def cards_to_anki(
             decks.append(deck)
             on_file_complete()
 
-    except deepl.DeepLException as e:
+    except OpenCodeGoError as e:
         # this takes a very long time, if it falls over we'd like to have some intermediate results!
-        # it can fall over because your DeepL key ran out.
+        # it can fall over because the translation API failed.
         genanki.Package(decks).write_to_file(ankifile)
-        click.echo("Problem with DeepL:")
+        click.echo("Problem with the translation API:")
         click.echo(e)
-        if e.http_status_code == 413:
-            print("You may have reached the translation limits of your API key")
 
     genanki.Package(decks).write_to_file(ankifile)

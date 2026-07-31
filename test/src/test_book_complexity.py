@@ -160,7 +160,7 @@ class TestBookComplexityOnMultipleLongerStrings:
         assert complexity["Vocab Level"] == 'A2'
 
     def test_complexities(self, en_nlp):
-        files = glob("test/data/dummy_books/**/*.txt", recursive=True)
+        files = sorted(glob("test/data/dummy_books/**/*.txt", recursive=True))
         complexities = list(get_complexities(files, nlp=en_nlp, vocab=None, known_morph_list=None, small_sample_size_cutoff=DEFAULT_SMALL_SAMPLE_SIZE_CUTOFF))
         assert len(list(complexities)) == 2
         assert complexities[0]["title"] == "dummy_book"

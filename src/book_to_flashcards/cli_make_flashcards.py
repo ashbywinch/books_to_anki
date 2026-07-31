@@ -4,31 +4,33 @@ Command-line interface for converting text inputs into language learning flashca
 This module uses the Click library to define a chained command pipeline
 allowing users to specify input sources (text files, folders of text files,
 or pre-processed JSONL files), apply processing steps (like sentence splitting
-via a spaCy pipeline), optionally translate the content using DeepL, and
-finally output to formats like Anki (.apkg) or JSONL.
+via a spaCy pipeline), optionally translate the content using the OpenCode Go
+API, and finally output to formats like Anki (.apkg) or JSONL.
 
 The tool is designed to be modular, with each command in the chain
 acting as a step in the processing pipeline.
 """
 
-from collections.abc import Generator
 import glob
 import os
 import sys
+from collections.abc import Generator
 from typing import Any
 
 import alive_progress  # type: ignore
 import click
-import deepl
 
-from book_to_flashcards.Progress import Progress
 from book_to_flashcards.cards_jsonl import cards_from_jsonl, cards_to_jsonl
+from book_to_flashcards.Progress import Progress
 
 from .Card import Card, card_trim_title
 from .cards_to_anki import cards_to_anki
-from .cards_untranslated_from_text import cards_untranslated_from_file, cards_skip_first_line_if_author
+from .cards_untranslated_from_text import (
+    cards_skip_first_line_if_author,
+    cards_untranslated_from_file,
+)
+from .opencode_translator import OpenCodeGoTranslator
 from .translate_cards import ReverseTextTranslator, translate_cards
-
 
 # Global progress tracking object.
 # Click's chained commands don't have a built-in way to pass state like
@@ -230,24 +232,30 @@ def pipeline(pipeline, maxfieldlen):
 
 
 @click.option(
-    "--lang", help="Code for language that DeepL will translate into e.g. EN-US"
+    "--lang",
+    default="English",
+    show_default=True,
+    help="Language to translate into, e.g. English, Spanish, French",
 )
 @click.option(
-    "--deeplkey",
-    envvar="DEEPL_KEY",
-    help="API key for DeepL (required for translations)",
+    "--model",
+    default="deepseek-v4-flash",
+    show_default=True,
+    help="Model to use for translations (served by the OpenCode Go provider, e.g. deepseek-v4-pro)",
 )
 @cli_make_flashcards.command()
-def translate(lang, deeplkey):
-    """Translates the 'front' field of each Card object using the DeepL API.
+def translate(lang, model):
+    """Translates the 'front' field of each Card object using the OpenCode Go API.
     
     This command consumes Card objects, adds translations to their 'back' field, 
     and yields the translated Card objects.
-    Requires a DeepL API key.
+    The API key is taken from the OPENCODE_API_KEY environment variable or from
+    opencode's auth file (see `opencode auth`). Cards are translated in batches,
+    in the context of the surrounding text of their book.
     """
     def processor(iterator) -> Generator[Card]:
         """Consumes Card objects, adds translations, and yields them."""
-        translator = deepl.Translator(deeplkey)
+        translator = OpenCodeGoTranslator(model=model)
         yield from translate_cards(iterator, translator, lang)
 
     return processor
@@ -257,8 +265,8 @@ def translate(lang, deeplkey):
 def dummy_translate():
     """'Translates' cards by reversing their front text. 
     
-    Useful for testing the pipeline without making actual API calls to DeepL
-    and using up the translation quota.
+    Useful for testing the pipeline without making actual API calls to the
+    translation service.
     """
     def processor(iterator) -> Generator[Card]:
         """Consumes Card objects, adds 'reversed' translations, and yields them."""
