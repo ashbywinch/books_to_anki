@@ -95,13 +95,19 @@ This section provides a high-level overview of the project's structure and the t
     *   Defines project metadata, dependencies, and build system configuration.
     *   Defines entry points for the command-line scripts: `book-to-flashcard`, `book-complexity`, `books-complexity`.
 *   **`readme.md`**: Provides detailed user-facing documentation.
+*   **`docs/`**: Coding standards the AI code review checks PRs against:
+    *   `coding-standards.md` — design principles, pipeline/translator rules, secrets, error handling.
+    *   `testing-standards.md` — determinism, injection over monkeypatching, fakes.
+    *   `writing-documentation.md` — density and structure rules for docs.
+    *   `card-pipeline.md` — card/translation/JSONL contracts not discoverable from code.
+    PRs are expected to comply with all four; the PR-Agent review workflow checks compliance per doc.
 
 ### Key Technologies & Dependencies
 
 *   Python (e.g., Python 3.9 as specified in `pyproject.toml`)
 *   `uv`: For package management, environment setup, and task running.
 *   `spacy`: For natural language processing (sentence splitting, grammatical analysis).
-*   `DeepL API`: For translation.
+*   `opencode` (external CLI): Provides the OpenCode Go API key used for translations (deepseek models).
 *   `Anki` (external application): The primary target for flashcard output.
 *   `Click`: For creating command-line interfaces.
 *   `genanki`: For programmatically creating Anki decks.

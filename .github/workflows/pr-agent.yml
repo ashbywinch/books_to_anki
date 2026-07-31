@@ -1,0 +1,55 @@
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  pr-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: the-pr-agent/pr-agent@b249e568e0c0fb6c674ace55fe95d02f62f8f3b3
+        id: pr-agent
+        env:
+          OPENAI_KEY: ${{ secrets.OPENCODE_GO_BOOKS_API_KEY }}
+          OPENAI_BASE_URL: https://opencode.ai/zen/go/v1
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_AGENT_CONFIG_BRANCH: ${{ github.head_ref }}
+
+      - name: Check review succeeded
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUM="${{ github.event.number }}"
+          SHA="${{ github.event.pull_request.head.sha }}"
+          SHORT_SHA="${SHA:0:7}"
+          if [ -z "$PR_NUM" ]; then
+            echo "Manual trigger — skipping review check (no PR number)"
+            exit 0
+          fi
+          # Match bot comments that reference this commit SHA in their body.
+          # PR-Agent's persistent review includes the SHA: "Review updated until commit .../SHA"
+          # and code suggestions include: "<!-- SHA -->".
+          # This avoids race conditions from concurrent runs (unlike timestamp-based filtering).
+          THIS_RUN_CMTS=$(gh api "repos/${{ github.repository }}/issues/$PR_NUM/comments" --jq "[.[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$SHORT_SHA\")))]" 2>/dev/null || echo "[]")
+          echo "$THIS_RUN_CMTS" | jq -e 'length == 0' > /dev/null 2>&1 && NO_COMMENTS=true || NO_COMMENTS=false
+          if echo "$THIS_RUN_CMTS" | jq -e 'any(.[].body; test("PR Reviewer Guide|PR Code Suggestions"))' > /dev/null 2>&1; then
+            echo "Review check passed"
+          elif echo "$THIS_RUN_CMTS" | jq -e 'any(.[].body; test("failed"; "i"))' > /dev/null 2>&1; then
+            echo "::error::PR-Agent reported a failure:"
+            echo "$THIS_RUN_CMTS" | jq -r '.[].body'
+            exit 1
+          elif [ "$NO_COMMENTS" = true ]; then
+            echo "::error::PR-Agent posted no comments for this commit — review was skipped or failed silently"
+            exit 1
+          else
+            echo "::error::PR-Agent comment found but did not match success or failure pattern"
+            echo "$THIS_RUN_CMTS" | jq -r '.[].body'
+            exit 1
+          fi
