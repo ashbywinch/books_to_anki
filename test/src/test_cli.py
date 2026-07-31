@@ -1,5 +1,6 @@
 import subprocess
 from sys import platform
+
 import pytest  # type: ignore
 
 
@@ -50,5 +51,6 @@ class TestClis:
             [f"{bin}/book-to-flashcard", *params],
             capture_output=True,
             text=True,
+            check=False,
         )
         assert result.returncode == 0, result.stderr

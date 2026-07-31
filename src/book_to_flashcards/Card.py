@@ -1,10 +1,12 @@
+# ruff: noqa: N999  # public module name, imported as book_to_flashcards.Card
+from __future__ import annotations
+
 """Defines core data structures for representing flashcards and related utility functions.
 
 This module contains dataclasses for `Card` (representing a piece of text extracted
 for a flashcard). It also includes utility functions for manipulating card titles.
 """
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -29,7 +31,7 @@ class Card:
     translation: str = ""
 
 
-def trim_title(title: str, separator: Optional[str] = None) -> str:
+def trim_title(title: str, separator: str | None = None) -> str:
     """Trims a title string by removing the last segment after a specified separator.
 
     If no separator is provided, or if the separator is not in the title,
@@ -47,7 +49,7 @@ def trim_title(title: str, separator: Optional[str] = None) -> str:
     return title if separator is None else separator.join(title.split(separator)[:-1])
 
 
-def card_trim_title(card: Card, separator: Optional[str] = None) -> Card:
+def card_trim_title(card: Card, separator: str | None = None) -> Card:
     """Creates a new Card object with its title trimmed.
 
     Applies the `trim_title` function to the `card.title` attribute.

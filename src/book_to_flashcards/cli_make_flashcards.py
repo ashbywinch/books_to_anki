@@ -48,7 +48,6 @@ def make_progress_bar(num_steps: int):
 @click.group(chain=True)
 def cli_make_flashcards():
     """Main command group for the book-to-flashcard generation pipeline."""
-    pass
 
 
 @cli_make_flashcards.result_callback()
@@ -69,7 +68,9 @@ def process_pipeline(processors):
             try:
                 for processor in processors:
                     iterator = processor(iterator)
-            except Exception as e:
+            except (OSError, ValueError, TypeError, KeyError, IndexError) as e:
+                # The pipeline steps raise these for API, parse, and file errors;
+                # report the failure and let the CLI exit.
                 print(e, file=sys.stderr)
     else:
         for processor in processors:
@@ -114,13 +115,11 @@ def from_folder(inputfolder):
     # The click framework doesn't have a way to pass progress around
     # chained commands
     # This command updates __progress.num_steps with the number of files found.
-    global __progress
     __progress.num_steps = len(files)
 
     def processor(iterator) -> Generator[str, Any, Any]:
         """Yields filepaths of .txt files found in the input folder."""
-        for fn in files:
-            yield fn
+        yield from files
 
     return processor
 
@@ -155,7 +154,7 @@ def remove_title_crap_after(separator:str):
             else:
                 # If it's not a card, yield it unchanged or handle error
                 # This case should ideally not happen if pipeline is structured correctly
-                raise ValueError(f"Expected Card object, got {type(card)}") 
+                raise TypeError(f"Expected Card object, got {type(card)}") 
 
 
     return processor

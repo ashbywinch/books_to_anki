@@ -58,14 +58,14 @@ def cards_untranslated_from_file(
     if nlp is None:
         nlp = make_nlp(pipeline)
 
-    file = open(inputfile, mode="r", encoding="utf-8")
-    docs = nlp.pipe(file)
+    with open(inputfile, mode="r", encoding="utf-8") as file:
+        docs = nlp.pipe(file)
 
-    for span in split_text(docs, max_span_length=maxfieldlen):
-        yield Card(
-            title = Path(inputfile).stem,
-            author = Path(inputfile).parent.stem,
-            start = span.start,
-            end = span.end,
-            text = span.text_with_ws,
-        )
+        for span in split_text(docs, max_span_length=maxfieldlen):
+            yield Card(
+                title = Path(inputfile).stem,
+                author = Path(inputfile).parent.stem,
+                start = span.start,
+                end = span.end,
+                text = span.text_with_ws,
+            )

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Provides functionality to intelligently split text into smaller, contextually coherent chunks.
 
@@ -18,11 +20,11 @@ character offsets.
 """
 
 import bisect
-from collections.abc import Generator
+from collections.abc import Generator, Iterable
 from dataclasses import dataclass
-from typing import Any, Iterable, Optional, Union
+from typing import Any
 
-from spacy.tokens import Doc, Span, Token # type: ignore
+from spacy.tokens import Doc, Span, Token  # type: ignore
 
 
 def are_consecutive(a: Span, b: Span) -> bool:
@@ -38,7 +40,7 @@ def are_consecutive(a: Span, b: Span) -> bool:
     return (a.start < b.start) and (a.end == b.start)
 
 
-def merge_spans(span_a: Union[Span, 'CrossDocSpan'], span_b: Union[Span, 'CrossDocSpan']) -> Union[Span, 'CrossDocSpan']:
+def merge_spans(span_a: Span | CrossDocSpan, span_b: Span | CrossDocSpan) -> Span | CrossDocSpan:
     """Merges two consecutive spans into a single span.
 
     If both spans are from the same spaCy Doc, a new spaCy Span is created.
@@ -66,9 +68,9 @@ def merge_spans(span_a: Union[Span, 'CrossDocSpan'], span_b: Union[Span, 'CrossD
     return CrossDocSpan(span_a.start, span_b.end, span_a.text_with_ws + span_b.text_with_ws)
 
 def consolidate_spans(
-    spans: Iterable[Union[Span, 'CrossDocSpan']], 
-    max_span_length: Optional[int] = None
-) -> Generator[Union[Span, 'CrossDocSpan'], Any, Any]:
+    spans: Iterable[Span | CrossDocSpan], 
+    max_span_length: int | None = None
+) -> Generator[Span | CrossDocSpan, Any, Any]:
     """Merges consecutive smaller spans from an iterable into larger ones.
 
     This function iterates through a sequence of spans. If consecutive spans
@@ -84,7 +86,7 @@ def consolidate_spans(
     Yields:
         Consolidated Span or CrossDocSpan objects.
     """
-    accumulating_span: Optional[Union[Span, 'CrossDocSpan']] = None
+    accumulating_span: Span | CrossDocSpan | None = None
     for span in spans:
         too_long_to_merge = accumulating_span and max_span_length and (
             len(accumulating_span.text_with_ws) + len(span.text_with_ws) > max_span_length
@@ -105,7 +107,7 @@ def consolidate_spans(
 def consolidated_spans_in_tree(
     doc: Doc, 
     root_token: Token, 
-    max_span_length: Optional[int] = None
+    max_span_length: int | None = None
 ) -> Generator[Span, Any, Any]:
     """Recursively traverses a dependency subtree and yields consolidated spaCy Spans.
 

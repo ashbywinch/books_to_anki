@@ -1,15 +1,16 @@
+from __future__ import annotations
+
 """Command-line interface for batch processing book complexity.
 
 This module provides a CLI using Click to calculate language complexity metrics
 for all .txt files within a specified folder. It leverages the 
 `get_books_complexity` function from the `book_complexity.book_complexity` module.
 """
-from typing import Optional
-import io # For type hinting Click file objects
-
-from .book_complexity import get_books_complexity
+import io  # For type hinting Click file objects
 
 import click
+
+from .book_complexity import get_books_complexity
 
 
 @click.command()
@@ -49,9 +50,9 @@ def cli_books_complexity(
     inputfolder: str, 
     pipeline: str, 
     outputfilename: str, 
-    knownmorphs: Optional[io.BytesIO],
-    frequencycsv: Optional[io.BytesIO],
-    remove_title_suffix_after: Optional[str],
+    knownmorphs: io.BytesIO | None,
+    frequencycsv: io.BytesIO | None,
+    remove_title_suffix_after: str | None,
     small_sample_size_cutoff: int
 ):
     """Calculate the complexity of all text files in a folder, and
