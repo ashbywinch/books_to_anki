@@ -38,6 +38,23 @@ from book_to_flashcards.translate_cards import translate_cards
 logger = logging.getLogger("translate_books")
 
 HOLE_ATTEMPTS = 3
+REPAIR_ROUNDS = 4
+MIN_SOURCE_LEN = 40
+MIN_RATIO = 0.6
+
+
+def suspect_card(card: Card) -> bool:
+    """True if the translation is suspiciously short for its source.
+
+    The translation model sometimes emits a 'compressed' response that covers
+    only the first sentence/line of each card, while still being valid JSON.
+    Such translations are short relative to the source; full translations
+    typically run 0.9-1.4x the source length, compressed ones ~0.3x. Cards
+    with very short sources are exempt (ratio is noise there).
+    """
+    text = card.text or ""
+    translation = card.translation or ""
+    return len(text) >= MIN_SOURCE_LEN and bool(translation) and len(translation) < MIN_RATIO * len(text)
 
 
 def card_to_line(card: Card) -> str:
@@ -64,7 +81,7 @@ def translate_book(cards, translator: OpenCodeGoTranslator, lang: str):
     for _ in range(HOLE_ATTEMPTS):
         holes = missing_indices(translated)
         if not holes:
-            return translated, True
+            break
         for i in holes:
             context = translated[i - 1].text if i > 0 else ""
             try:
@@ -72,15 +89,38 @@ def translate_book(cards, translator: OpenCodeGoTranslator, lang: str):
                 translated[i].translation = result[0]
             except (OpenCodeGoError, TypeError, ValueError):
                 pass  # try again next round
-    return translated, not missing_indices(translated)
+
+    # Compression repair: the model intermittently answers a whole call in
+    # 'compressed mode' (every card gets a first-line-only translation, still
+    # valid JSON). Because the mode is per call, re-translate all suspect
+    # cards of the book together each round and keep the longest translation
+    # seen. A book only counts as complete when no card is suspect.
+    for _ in range(REPAIR_ROUNDS):
+        suspects = [i for i, card in enumerate(translated) if suspect_card(card)]
+        if not suspects:
+            break
+        batch = [translated[i] for i in suspects]
+        context = translated[suspects[0] - 1].text if suspects[0] > 0 else ""
+        try:
+            results = translator.translate_cards(batch, lang, context)
+            for i, tr in zip(suspects, results):
+                if len(tr) > len(translated[i].translation):
+                    translated[i].translation = tr
+        except (OpenCodeGoError, TypeError, ValueError):
+            pass  # try again next round
+
+    complete = not missing_indices(translated) and not any(suspect_card(c) for c in translated)
+    return translated, complete
 
 
-def process_book(src: Path, out: Path, translator: OpenCodeGoTranslator, lang: str):
-    """Translate one book file; returns (status, cards_written)."""
-    if out.exists() and out.stat().st_size > 0:
-        existing = list(cards_from_jsonl_file(out))
-        if existing and not missing_indices(existing):
-            return "skipped", 0
+def process_book(src: Path, out: Path, translator: OpenCodeGoTranslator, lang: str, fresh: bool = False):
+    """Translate one book file; returns (status, cards_written).
+
+    With ``fresh``, existing translations in the input are ignored and every
+    card is re-translated (used to redo books produced by unverified runs).
+    """
+    def complete_set(cs) -> bool:
+        return bool(cs) and not missing_indices(cs) and not any(suspect_card(c) for c in cs)
 
     first_line = next((l for l in src.read_text(encoding="utf-8").splitlines() if l.strip()), "")
     if first_line.startswith('{"filename"'):
@@ -89,17 +129,40 @@ def process_book(src: Path, out: Path, translator: OpenCodeGoTranslator, lang: s
         logger.info("skipped %s: old schema, stale", src.name)
         return "skipped", 0
 
-    cards = list(cards_from_jsonl_file(src))
-    if not cards:
-        return "empty-input", 0
-    if not missing_indices(cards):
-        return "skipped", 0
+    if fresh:
+        cards = list(cards_from_jsonl_file(src))
+        if not cards:
+            return "empty-input", 0
+        for card in cards:
+            card.translation = ""
+    elif out.exists() and out.stat().st_size > 0:
+        # Reuse the previous output when present: good translations are kept,
+        # only empty or compressed cards are redone. This also repairs books
+        # written by earlier runs that predate the compression check.
+        cards = list(cards_from_jsonl_file(out))
+        if complete_set(cards):
+            return "skipped", 0
+    else:
+        cards = list(cards_from_jsonl_file(src))
+        if not cards:
+            return "empty-input", 0
+        if complete_set(cards):
+            return "skipped", 0
+
+    src_count = sum(1 for _ in cards_from_jsonl_file(src))
+    if len(cards) != src_count:
+        logger.error("%s: card count changed %d -> %d", src, src_count, len(cards))
+        return "failed", 0
 
     t0 = time.time()
     translated, complete = translate_book(cards, translator, lang)
     if not complete:
         holes = len(missing_indices(translated))
-        logger.error("%s: %d/%d cards still untranslated after retries", src, holes, len(cards))
+        suspects = sum(1 for c in translated if suspect_card(c))
+        logger.error(
+            "%s: %d holes, %d compressed after %d repair rounds",
+            src, holes, suspects, REPAIR_ROUNDS,
+        )
         return "failed", 0
     if len(translated) != len(cards):
         logger.error("%s: card count changed %d -> %d", src, len(cards), len(translated))
@@ -122,6 +185,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--lang", default="English", help="language to translate into")
     ap.add_argument("--model", default="deepseek-v4-flash", help="OpenCode Go model")
     ap.add_argument("--only-author", default="", help="restrict to one author subfolder")
+    ap.add_argument("--fresh", action="store_true", help="re-translate every card, ignoring existing translations in the input")
     ap.add_argument("--limit", type=int, default=0, help="process at most this many books (0 = all)")
     args = ap.parse_args(argv)
 
@@ -150,7 +214,10 @@ def main(argv: list[str] | None = None) -> int:
     cards_done = 0
     t0 = time.time()
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
-        futures = {pool.submit(process_book, src, dst, translator, args.lang): src for src, dst in jobs}
+        futures = {
+            pool.submit(process_book, src, dst, translator, args.lang, args.fresh): src
+            for src, dst in jobs
+        }
         for fut in as_completed(futures):
             src = futures[fut]
             try:

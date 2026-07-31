@@ -37,13 +37,22 @@ AUTH_JSON_PROVIDER_HINTS = ("opencode-go", "opencode")
 _SYSTEM_PROMPT = """\
 You are a professional literary translator. Translate the source fragments \
 into {lang}. Be faithful to the source: keep names, tone and register, and do \
-not add or drop content. If a fragment is a verse line, translate it as verse. \
+not add or drop content. If a fragment is verse, translate it as verse, line \
+by line, keeping every line. \
 The fragments come from "{title}" by {author} and are in reading order; they \
 may begin or end mid-sentence, so use the provided CONTEXT to resolve \
 pronouns, references and phrasing correctly. Translate every fragment, even \
-if the CONTEXT or the fragment itself is fragmentary. Respond with ONLY a \
-JSON array of objects, one per fragment, in the same order, like this: \
-[{{"index":1,"translation":"..."}}]"""
+if the CONTEXT or the fragment itself is fragmentary. \
+Translate EACH fragment IN FULL: every line and every sentence of a fragment \
+must be translated, in order. NEVER summarize, condense, or translate only \
+the first sentence or first line of a fragment: a partial translation is an \
+error, not an acceptable answer. \
+For EVERY fragment, also include a "source" field containing its opening \
+words, copied VERBATIM from the FRAGMENTS list (about the first 24 \
+characters of the fragment, ignoring leading whitespace). This lets us check \
+that each translation is paired with the right fragment. \
+Respond with ONLY a JSON array of objects, one per fragment, in the same \
+order, like this: [{{"index":1,"source":"...","translation":"..."}}]"""
 
 _USER_PROMPT = """\
 CONTEXT (the text immediately before the fragments to translate):
@@ -53,9 +62,21 @@ FRAGMENTS:
 {fragments}
 
 Translate ALL {count} fragments above into {lang} and respond with ONLY the \
-JSON array of {{ "index": N, "translation": "..." }} objects, exactly one \
-object per fragment (exactly {count} objects, in order). Never omit a \
-fragment; if one is impossible to translate, use an empty string for it."""
+JSON array of {{ "index": N, "source": "...", "translation": "..." }} \
+objects, exactly one object per fragment (exactly {count} objects, in \
+order). The "source" field must be the VERBATIM opening of the corresponding \
+fragment (about the first 24 characters, ignoring leading whitespace) - not \
+a translation of it. Never omit a fragment; if one is impossible to \
+translate, use an empty string for it. \
+\
+Before you finish, CHECK YOUR WORK: for each of the {count} objects, verify \
+that its "translation" covers the ENTIRE fragment - every line and every \
+sentence, in order - and that its "source" field matches the fragment with \
+the same number. A translation that covers only the first line or first \
+sentence, that condenses or summarizes the fragment, or that is paired with \
+the wrong fragment, is WRONG. If any object is wrong, rewrite it correctly \
+before responding. Only after every fragment has a complete, correctly \
+paired translation may you respond."""
 
 
 class OpenCodeGoError(RuntimeError):
@@ -81,6 +102,8 @@ class OpenCodeGoTranslator(Translator):
         urlopen: Callable[..., Any] | None = None,
         disable_thinking: bool = True,
         batch_size: int | None = None,
+        temperature: float | None = None,
+        json_mode: bool = True,
     ):
         self.model = model
         self.base_url = base_url.rstrip("/")
@@ -91,6 +114,8 @@ class OpenCodeGoTranslator(Translator):
         self.disable_thinking = disable_thinking
         if batch_size is not None:
             self.batch_size = batch_size
+        self.temperature = temperature
+        self.json_mode = json_mode
         # injectable for tests
         self._urlopen = urlopen or urllib.request.urlopen
 
@@ -106,6 +131,10 @@ class OpenCodeGoTranslator(Translator):
             ],
             "max_tokens": self.max_tokens,
         }
+        if self.json_mode:
+            payload["response_format"] = {"type": "json_object"}
+        if self.temperature is not None:
+            payload["temperature"] = self.temperature
         if self.disable_thinking:
             # deepseek-v4-flash otherwise spends its whole output budget on
             # reasoning and returns empty translations for large batches
@@ -220,7 +249,13 @@ class OpenCodeGoTranslator(Translator):
         response = self._chat(system, user)
         parsed = parse_translation_response(response, len(texts))
         translations = [""] * len(texts)
-        for index, translation in parsed:
+        for (index, (source, translation)), text in zip(parsed, texts):
+            if not _source_matches(source, text):
+                # the model paired a translation with the wrong fragment
+                raise ValueError(
+                    f"Misaligned response for fragment {index}: "
+                    f"source {source[:20]!r} does not match {text[:20]!r}"
+                )
             translations[index - 1] = translation
         return translations
 
@@ -275,17 +310,39 @@ def parse_translation_response(response: str, expected: int) -> list[tuple[int, 
 
     if not isinstance(data, list):
         raise TypeError(f"Expected a JSON array, got {type(data).__name__}")
-    by_index: dict[int, str] = {}
+    by_index: dict[int, tuple[str, str]] = {}
     for item in data:
         if not isinstance(item, dict):
             raise TypeError(f"Expected objects in array, got {type(item).__name__}")
         index = item.get("index")
         translation = item.get("translation")
+        source = item.get("source", "")
         if not isinstance(index, int) or not isinstance(translation, str):
             raise TypeError(f"Malformed entry: {item!r}")
-        by_index[index] = translation
+        by_index[index] = (source, translation)
     if set(by_index) != set(range(1, expected + 1)):
         raise ValueError(
             f"Expected indices 1..{expected}, got {sorted(by_index)}"
         )
     return sorted(by_index.items())
+
+
+def _normalize(text: str) -> str:
+    """Lowercase and collapse whitespace, for fuzzy prefix comparison."""
+    return "".join(text.split()).lower()
+
+
+def _source_matches(source: str, text: str) -> bool:
+    """Does the model's echoed source match the opening of the expected card?
+
+    The model is asked to copy the first ~24 characters of each fragment
+    verbatim; we accept a fuzzy match because it may trim leading
+    punctuation/whitespace or normalize quotes. Both strings are normalized
+    and leading non-alphanumeric characters are skipped before comparing the
+    first 12 characters.
+    """
+    s = _normalize(source)
+    t = _normalize(text)
+    s = s.lstrip("0123456789—–-«»\"'().,:;!?…")
+    t = t.lstrip("0123456789—–-«»\"'().,:;!?…")
+    return bool(s) and (t.startswith(s[:12]) or s[:12] == t[:12])
