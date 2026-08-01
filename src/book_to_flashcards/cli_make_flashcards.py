@@ -29,7 +29,7 @@ from .cards_untranslated_from_text import (
     cards_skip_first_line_if_author,
     cards_untranslated_from_file,
 )
-from .opencode_translator import OpenCodeGoTranslator
+from .opencode_translator import OpenCodeGoError, OpenCodeGoTranslator
 from .translate_cards import ReverseTextTranslator, translate_cards
 
 # Global progress tracking object.
@@ -68,7 +68,7 @@ def process_pipeline(processors):
             try:
                 for processor in processors:
                     iterator = processor(iterator)
-            except (OSError, ValueError, TypeError, KeyError, IndexError) as e:
+            except (OSError, ValueError, TypeError, KeyError, IndexError, OpenCodeGoError) as e:
                 # The pipeline steps raise these for API, parse, and file errors;
                 # report the failure and let the CLI exit.
                 print(e, file=sys.stderr)
