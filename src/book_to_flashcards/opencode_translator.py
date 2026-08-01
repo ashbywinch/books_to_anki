@@ -309,7 +309,16 @@ def parse_translation_response(response: str, expected: int) -> list[tuple[int, 
         text = fence.group(1)
     start, end = text.find("["), text.rfind("]")
     if start == -1 or end <= start:
-        raise ValueError(f"No JSON array in response: {response[:200]!r}")
+        # the model sometimes emits the objects bare, without the array
+        # wrapper: "{...}\n{...}" - wrap the brace span and retry
+        first_brace, last_brace = text.find("{"), text.rfind("}")
+        if first_brace != -1 and last_brace > first_brace:
+            # separate the bare objects (which may be newline-joined) with
+            # commas before wrapping in an array
+            text = "[" + re.sub(r"}\s*{", "},{", text[first_brace : last_brace + 1]) + "]"
+            start, end = 0, len(text) - 1
+        else:
+            raise ValueError(f"No JSON array in response: {response[:200]!r}")
     try:
         data = json.loads(text[start : end + 1])
     except json.JSONDecodeError as e:
@@ -339,17 +348,46 @@ def _normalize(text: str) -> str:
     return "".join(text.split()).lower()
 
 
+def _edits_leq(a: str, b: str, max_edits: int) -> bool:
+    """Is the Levenshtein distance between ``a`` and ``b`` at most ``max_edits``?
+
+    Early-exits once the running row's minimum exceeds the bound, so a truly
+    different string (e.g. a shifted card's source) fails fast instead of
+    computing a full table.
+    """
+    if abs(len(a) - len(b)) > max_edits:
+        return False
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        row_min = i
+        for j, cb in enumerate(b, 1):
+            cost = 0 if ca == cb else 1
+            v = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+            cur.append(v)
+            row_min = min(row_min, v)
+        if row_min > max_edits:
+            return False
+        prev = cur
+    return prev[-1] <= max_edits
+
+
 def _source_matches(source: str, text: str) -> bool:
     """Does the model's echoed source match the opening of the expected card?
 
     The model is asked to copy the first ~24 characters of each fragment
     verbatim; we accept a fuzzy match because it may trim leading
-    punctuation/whitespace or echo the prompt's "[N] " numbering. Both
-    strings are normalized and leading non-alphanumeric characters are
-    skipped. A longer echoed source is far more distinctive, so when it is
-    long enough (>= 24 chars) the whole echo must be a prefix of the card;
-    the short 12-character prefix fallback is only used when the echo itself
-    is short.
+    punctuation/whitespace, echo the prompt's "[N] " numbering, or
+    transcribe a character slightly differently (e.g. "сестрою" vs
+    "сестрой" - observed in production, where an exact-prefix check caused
+    a retry loop). Both strings are normalized and leading non-alphanumeric
+    characters are skipped.
+
+    A longer echoed source is far more distinctive, so a long echo is
+    matched against the card's opening with at most 2 character edits; a
+    short echo falls back to a 12-character prefix or 1-edit match. A truly
+    shifted card differs by far more than a couple of edits, so this stays a
+    real alignment check.
     """
     s = _normalize(source)
     t = _normalize(text)
@@ -358,5 +396,5 @@ def _source_matches(source: str, text: str) -> bool:
     if not s:
         return False
     if len(s) >= 24:
-        return t.startswith(s)
-    return t.startswith(s[:12])
+        return _edits_leq(s, t[: len(s)], 2)
+    return t.startswith(s[:12]) or _edits_leq(s[:12], t[:12], 1)
