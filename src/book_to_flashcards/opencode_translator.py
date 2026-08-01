@@ -363,6 +363,10 @@ def parse_translation_response(response: str, expected: int) -> list[tuple[int, 
         source = item.get("source", "")
         if not isinstance(index, int) or not isinstance(translation, str):
             raise TypeError(f"Malformed entry: {item!r}")
+        if index in by_index:
+            # a duplicated index would silently overwrite the earlier entry
+            # and pass the set-based completeness check below
+            raise ValueError(f"Duplicate index {index} in response")
         by_index[index] = (source, translation)
     if set(by_index) != set(range(1, expected + 1)):
         raise ValueError(

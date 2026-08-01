@@ -251,6 +251,26 @@ class TestOpenCodeGoTranslator:
         assert translator.translate_cards(cards, "English", "") == ["one", "two"]
         assert len(calls) == 4
 
+    def test_duplicate_index_is_split_and_recovered(self):
+        # a duplicated index would silently overwrite the earlier entry (dict
+        # merge) and pass the set-completeness check; it must reject the
+        # batch so the split recovery re-asks the model per card
+        translator, calls = make_translator(
+            [
+                completion(
+                    '[{"index":1,"source":"book 0","translation":"dup-a"},{"index":1,"source":"book 0","translation":"dup-b"},{"index":2,"source":"book 1","translation":"two"}]'
+                ),
+                completion(
+                    '[{"index":1,"source":"book 0","translation":"dup-a"},{"index":1,"source":"book 0","translation":"dup-b"},{"index":2,"source":"book 1","translation":"two"}]'
+                ),
+                completion('[{"index":1,"source":"whatever","translation":"one"}]'),
+                completion('[{"index":1,"source":"whatever","translation":"two"}]'),
+            ]
+        )
+        cards = make_cards("book", 2)
+        assert translator.translate_cards(cards, "English", "") == ["one", "two"]
+        assert len(calls) == 4
+
     def test_single_card_skips_alignment_check(self):
         # with one card there is nothing to shift against; the echo check is
         # skipped so a sloppy echo cannot strand the book at the deepest split
@@ -443,10 +463,7 @@ class TestFindApiKey:
         assert find_api_key() == "env-key"
 
     def test_missing_key_raises(self, monkeypatch):
-        from pathlib import Path
-
         monkeypatch.delenv("OPENCODE_API_KEY", raising=False)
-        monkeypatch.delenv("XDG_DATA_HOME", raising=False)
-        monkeypatch.setattr(Path, "home", lambda: Path("/nonexistent"))
+        monkeypatch.setenv("XDG_DATA_HOME", "/nonexistent")
         with pytest.raises(OpenCodeGoError):
             find_api_key()
