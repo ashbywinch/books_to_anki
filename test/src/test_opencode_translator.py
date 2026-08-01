@@ -220,11 +220,12 @@ class TestOpenCodeGoTranslator:
             "three",
         ]
 
-    def test_misaligned_source_is_rejected(self):
-        # the model paired a translation with the wrong fragment: the echoed
-        # source does not match its card, so the batch is rejected. With two
-        # cards there is real alignment to protect.
-        translator, _ = make_translator(
+    def test_misaligned_batch_is_split_and_recovered(self):
+        # the model misaligned a translation in a 2-card batch: the whole
+        # batch is rejected and split, and the single-card halves skip the
+        # echo check (nothing to shift against), so the book recovers instead
+        # of failing
+        translator, calls = make_translator(
             [
                 completion(
                     '[{"index":1,"source":"book 0","translation":"one"},{"index":2,"source":"totally different","translation":"two"}]'
@@ -232,11 +233,13 @@ class TestOpenCodeGoTranslator:
                 completion(
                     '[{"index":1,"source":"book 0","translation":"one"},{"index":2,"source":"totally different","translation":"two"}]'
                 ),
+                completion('[{"index":1,"source":"whatever","translation":"one"}]'),
+                completion('[{"index":1,"source":"whatever","translation":"two"}]'),
             ]
         )
         cards = make_cards("book", 2)
-        with pytest.raises(ValueError):
-            translator.translate_cards(cards, "English", "")
+        assert translator.translate_cards(cards, "English", "") == ["one", "two"]
+        assert len(calls) == 4
 
     def test_single_card_skips_alignment_check(self):
         # with one card there is nothing to shift against; the echo check is
