@@ -208,7 +208,7 @@ class TestMain:
         return src
 
     def make_factory(self, translator):
-        def factory(model=None):
+        def factory(model=None, batch_size=None):
             return translator
 
         return factory
