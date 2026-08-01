@@ -1,0 +1,13 @@
+# Pre-commit runs the SAME make target as CI's lint step (make lint-github,
+# see .github/workflows/python-app.yml). One target is the single source of
+# truth for the check. `make test` is deliberately NOT a hook here: at ~46s it
+# is too slow and would get bypassed — CI runs it separately.
+repos:
+  - repo: local
+    hooks:
+      - id: lint
+        name: lint
+        entry: make lint-github
+        language: system
+        pass_filenames: false
+        always_run: true
