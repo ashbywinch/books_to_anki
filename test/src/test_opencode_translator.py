@@ -114,27 +114,27 @@ class TestContextAwareBatching:
 class TestParseTranslationResponse:
     def test_plain_array(self):
         assert parse_translation_response(
-            '[{"index":1,"translation":"A"}]', 1
-        ) == [(1, "A")]
+            '[{"index":1,"source":"X","translation":"A"}]', 1
+        ) == [(1, ("X", "A"))]
 
     def test_markdown_fences(self):
         assert parse_translation_response(
-            '```json\n[{"index":1,"translation":"A"}]\n```', 1
-        ) == [(1, "A")]
+            '```json\n[{"index":1,"source":"X","translation":"A"}]\n```', 1
+        ) == [(1, ("X", "A"))]
 
     def test_prose_around_json(self):
         assert parse_translation_response(
-            'Sure! Here it is:\n[{"index":1,"translation":"A"}]\nHope that helps', 1
-        ) == [(1, "A")]
+            'Sure! Here it is:\n[{"index":1,"source":"X","translation":"A"}]\nHope that helps', 1
+        ) == [(1, ("X", "A"))]
 
     def test_missing_index(self):
         with pytest.raises(ValueError):
-            parse_translation_response('[{"index":1,"translation":"A"}]', 2)
+            parse_translation_response('[{"index":1,"source":"X","translation":"A"}]', 2)
 
     def test_duplicate_index(self):
         with pytest.raises(ValueError):
             parse_translation_response(
-                '[{"index":1,"translation":"A"},{"index":1,"translation":"B"}]', 2
+                '[{"index":1,"source":"X","translation":"A"},{"index":1,"source":"Y","translation":"B"}]', 2
             )
 
     def test_not_json(self):
@@ -188,7 +188,7 @@ class TestOpenCodeGoTranslator:
         translator, calls = make_translator(
             [
                 completion(
-                    '[{"index":1,"translation":"one"},{"index":2,"translation":"two"},{"index":3,"translation":"three"}]'
+                    '[{"index":1,"source":"book 0","translation":"one"},{"index":2,"source":"book 1","translation":"two"},{"index":3,"source":"book 2","translation":"three"}]'
                 )
             ]
         )
@@ -209,7 +209,7 @@ class TestOpenCodeGoTranslator:
         translator, _ = make_translator(
             [
                 completion(
-                    '[{"index":3,"translation":"three"},{"index":1,"translation":"one"},{"index":2,"translation":"two"}]'
+                    '[{"index":3,"source":"book 2","translation":"three"},{"index":1,"source":"book 0","translation":"one"},{"index":2,"source":"book 1","translation":"two"}]'
                 )
             ]
         )
@@ -220,14 +220,43 @@ class TestOpenCodeGoTranslator:
             "three",
         ]
 
+    def test_misaligned_source_is_rejected(self):
+        # the model paired a translation with the wrong fragment: the echoed
+        # source does not match the expected card, so the batch is rejected
+        translator, _ = make_translator(
+            [
+                completion('[{"index":1,"source":"totally different","translation":"one"}]'),
+                completion('[{"index":1,"source":"totally different","translation":"one"}]'),
+            ]
+        )
+        cards = make_cards("book", 1)
+        with pytest.raises(ValueError):
+            translator.translate_cards(cards, "English", "")
+
+    def test_echo_with_list_numbering_prefix_passes(self):
+        # the model sometimes echoes the prompt's "[N] " numbering before the
+        # fragment text; the check must tolerate it (observed in production)
+        card = Card(
+            title="book", author="Author", start=0, end=60,
+            text="(1598 года, 20 февраля",
+        )
+        translator, _ = make_translator(
+            [
+                completion(
+                    '[{"index":1,"source":"[1] (1598 года, 20 ф","translation":"one"}]'
+                )
+            ]
+        )
+        assert translator.translate_cards([card], "English", "") == ["one"]
+
     def test_bad_batch_is_split_into_halves(self):
         # whole batch fails twice, then each half succeeds
         translator, calls = make_translator(
             [
                 completion("Sorry, I cannot answer that."),
                 completion("Still no translations."),
-                completion('[{"index":1,"translation":"one"}]'),
-                completion('[{"index":1,"translation":"two"}]'),
+                completion('[{"index":1,"source":"book 0","translation":"one"}]'),
+                completion('[{"index":1,"source":"book 1","translation":"two"}]'),
             ]
         )
         cards = make_cards("book", 2)
@@ -236,6 +265,38 @@ class TestOpenCodeGoTranslator:
             "two",
         ]
         assert len(calls) == 4
+
+    def test_split_halves_inherit_preceding_text_as_context(self):
+        # whole batch fails twice, then the second half fails twice more:
+        # every split must carry the text that precedes it as context, so
+        # split cards keep the surrounding text for pronouns and references
+        translator, calls = make_translator(
+            [
+                completion("bad"),
+                completion("bad"),
+                completion(
+                    '[{"index":1,"source":"book 0","translation":"one"},{"index":2,"source":"book 1","translation":"two"}]'
+                ),
+                completion("bad"),
+                completion("bad"),
+                completion('[{"index":1,"source":"book 2","translation":"three"}]'),
+                completion('[{"index":1,"source":"book 3","translation":"four"}]'),
+            ]
+        )
+        cards = make_cards("book", 4)
+        assert translator.translate_cards(cards, "English", "") == [
+            "one",
+            "two",
+            "three",
+            "four",
+        ]
+        users = [json.loads(c.data)["messages"][1]["content"] for c in calls]
+        assert len(users) == 7
+        # the [b2, b3] call and the [b2] call inherit the first half's text
+        assert "book 0book 1" in users[3]
+        assert "book 0book 1" in users[5]
+        # the single-card [b3] call also inherits b2's text
+        assert "book 0book 1book 2" in users[6]
 
     def test_single_bad_card_raises(self):
         translator, _ = make_translator(

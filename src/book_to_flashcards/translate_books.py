@@ -128,6 +128,7 @@ def main(
     ap.add_argument("--input", required=True, help="folder of per-book jsonl files")
     ap.add_argument("--output", required=True, help="staging folder to write translated books")
     ap.add_argument("--workers", type=int, default=4, help="parallel worker threads (default 4)")
+    ap.add_argument("--batch-size", type=int, default=None, help="cards per translation API call (default: translator default)")
     ap.add_argument("--lang", default="English", help="language to translate into")
     ap.add_argument("--model", default="deepseek-v4-flash", help="OpenCode Go model")
     ap.add_argument("--only-author", default="", help="restrict to one author subfolder")
@@ -151,7 +152,10 @@ def main(
 
     if translator_factory is None:
         translator_factory = OpenCodeGoTranslator
-    translator = translator_factory(model=args.model)
+    translator = translator_factory(
+        model=args.model,
+        batch_size=args.batch_size if args.batch_size else None,
+    )
     logger.info(
         "translating %d books (%s -> %s) with %d workers",
         len(jobs), args.lang, args.model, args.workers,
