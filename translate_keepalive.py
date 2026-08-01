@@ -28,6 +28,10 @@ BATCH_CMD = [
     str(HERE / "data/translations-site"),
     "--workers",
     "4",
+    # 60-card batches fail ~40% of calls on dense prose; 30 roughly doubles
+    # throughput. Match the orchestrator's setting on relaunch.
+    "--batch-size",
+    "30",
 ]
 INTERVAL_SECONDS = 15 * 60
 PROC_PATTERN = "book_to_flashcards.translate_books"

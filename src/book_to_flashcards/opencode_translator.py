@@ -182,6 +182,18 @@ class OpenCodeGoTranslator(Translator):
                 raise OpenCodeGoError(
                     f"OpenCode Go API error {e.code}: {e.read().decode('utf-8', 'replace')[:200]}"
                 ) from e
+            except (urllib.error.URLError, OSError) as e:
+                # transport-level failures (connection refused, DNS, read
+                # timeouts) are OSErrors, not HTTPErrors; retry with the same
+                # backoff so the batch/split recovery only sees failures that
+                # exhausted the retry budget
+                if attempt < self.max_retries:
+                    time.sleep(delay)
+                    delay *= 2
+                    continue
+                raise OpenCodeGoError(
+                    f"OpenCode Go API request failed: {e!r}"
+                ) from e
         else:  # pragma: no cover - only reachable if retries exhaust without break
             raise OpenCodeGoError("OpenCode Go API request failed after retries")
         try:

@@ -395,6 +395,47 @@ class TestOpenCodeGoTranslator:
         with pytest.raises(OpenCodeGoError):
             translator.translate_cards(cards, "English", "")
 
+    def test_transport_error_is_retried_then_succeeds(self):
+        # connection failures are URLError/OSError, not HTTPError: they must
+        # use the same backoff retry budget instead of escaping and killing
+        # the whole book
+        urlopen, calls = make_fake_urlopen(
+            [
+                urllib.error.URLError("connection refused"),
+                completion('[{"index":1,"source":"book 0","translation":"one"}]'),
+            ]
+        )
+        translator = OpenCodeGoTranslator(api_key="test-key", urlopen=urlopen)
+        cards = make_cards("book", 1)
+        assert translator.translate_cards(cards, "English", "") == ["one"]
+        assert len(calls) == 2
+
+    def test_read_timeout_is_retried(self):
+        # TimeoutError is an OSError; a read timeout must not escape the loop
+        urlopen, calls = make_fake_urlopen(
+            [
+                TimeoutError("read timed out"),
+                completion('[{"index":1,"source":"book 0","translation":"one"}]'),
+            ]
+        )
+        translator = OpenCodeGoTranslator(api_key="test-key", urlopen=urlopen)
+        cards = make_cards("book", 1)
+        assert translator.translate_cards(cards, "English", "") == ["one"]
+        assert len(calls) == 2
+
+    def test_transport_error_exhausted_raises_opencode_error(self):
+        # after the retry budget, a transport failure surfaces as
+        # OpenCodeGoError so _translate_batch_with_retries handles it
+        def urlopen(request, timeout=None):
+            raise urllib.error.URLError("down")
+
+        translator = OpenCodeGoTranslator(
+            api_key="test-key", urlopen=urlopen, max_retries=2
+        )
+        cards = make_cards("book", 1)
+        with pytest.raises(OpenCodeGoError):
+            translator.translate_cards(cards, "English", "")
+
 
 class TestFindApiKey:
     def test_env_var_wins(self, monkeypatch):
