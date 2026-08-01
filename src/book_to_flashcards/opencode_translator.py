@@ -106,6 +106,7 @@ class OpenCodeGoTranslator(Translator):
         urlopen: Callable[..., Any] | None = None,
         disable_thinking: bool = True,
         batch_size: int | None = None,
+        temperature: float = 0.0,
     ):
         self.model = model
         self.base_url = base_url.rstrip("/")
@@ -114,6 +115,7 @@ class OpenCodeGoTranslator(Translator):
         self.timeout = timeout
         self.max_retries = max_retries
         self.disable_thinking = disable_thinking
+        self.temperature = temperature
         if batch_size is not None:
             self.batch_size = batch_size
         # injectable for tests
@@ -130,6 +132,12 @@ class OpenCodeGoTranslator(Translator):
                 {"role": "user", "content": user},
             ],
             "max_tokens": self.max_tokens,
+            # structured output: the API guarantees a syntactically valid JSON
+            # response, eliminating truncated/bare-object responses
+            "response_format": {"type": "json_object"},
+            # deterministic decoding: structured tasks are far more consistent
+            # at temperature 0 (reduces alignment drift and duplicates)
+            "temperature": self.temperature,
         }
         if self.disable_thinking:
             # deepseek-v4-flash otherwise spends its whole output budget on
