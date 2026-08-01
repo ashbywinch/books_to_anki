@@ -249,6 +249,36 @@ class TestOpenCodeGoTranslator:
         )
         assert translator.translate_cards([card], "English", "") == ["one"]
 
+    def test_echo_with_small_transcription_variant_passes(self):
+        # the model sometimes echoes a character differently while still
+        # echoing the right fragment ("сестрою" vs "сестрой", observed in
+        # production); an exact-prefix check looped forever on this
+        card = Card(
+            title="book", author="Author", start=0, end=60,
+            text="С сестрой своею Дашей, тоже воспитанницей Варвары Петровны",
+        )
+        translator, _ = make_translator(
+            [
+                completion(
+                    '[{"index":1,"source":"С сестрою своею Дашей, тоже воспитанницей","translation":"one"}]'
+                )
+            ]
+        )
+        assert translator.translate_cards([card], "English", "") == ["one"]
+
+    def test_bare_object_stream_is_parsed(self):
+        # the model sometimes omits the array wrapper entirely
+        translator, _ = make_translator(
+            [
+                completion(
+                    '{"index":1,"source":"book 0","translation":"one"}\n'
+                    '{"index":2,"source":"book 1","translation":"two"}'
+                )
+            ]
+        )
+        cards = make_cards("book", 2)
+        assert translator.translate_cards(cards, "English", "") == ["one", "two"]
+
     def test_bad_batch_is_split_into_halves(self):
         # whole batch fails twice, then each half succeeds
         translator, calls = make_translator(
