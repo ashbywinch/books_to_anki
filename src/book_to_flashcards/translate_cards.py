@@ -65,8 +65,14 @@ def _translate_batch(
 
     Only cards that do not already have a translation are sent to the
     translator, so re-running translation on an already-translated jsonl is a
-    no-op (and never uses up any API quota).
+    no-op (and never uses up any API quota). Cards whose text is
+    whitespace-only have nothing to translate: they are marked with their own
+    text as the translation so the model never sees them (the model reliably
+    drops empty fragments, which broke the index-completeness check).
     """
+    for card in cards:
+        if not card.translation and not card.text.strip():
+            card.translation = card.text
     missing = [card for card in cards if not card.translation]
     if not missing:
         yield from cards

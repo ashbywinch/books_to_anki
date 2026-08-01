@@ -102,6 +102,16 @@ class TestContextAwareBatching:
         assert out[0].translation == "T1"
         assert out[2].translation == "T2"
 
+    def test_whitespace_only_cards_are_not_sent(self):
+        translator = RecordingTranslator()
+        cards = make_cards("book1", 2)
+        cards[0].text = "\n"
+        out = list(translate_cards(cards, translator, "English"))
+        # the blank card is marked with its own text and never sent
+        assert out[0].translation == "\n"
+        sent = [t for texts, _, _ in translator.calls for t in texts]
+        assert sent == ["book1 1"]
+
     def test_context_cards_limits_context_length(self):
         translator = RecordingTranslator()
         cards = make_cards("book1", 12)
