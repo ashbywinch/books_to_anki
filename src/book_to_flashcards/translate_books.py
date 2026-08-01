@@ -50,7 +50,7 @@ def missing_indices(cards) -> list[int]:
     return [i for i, card in enumerate(cards) if not card.translation]
 
 
-def translate_book(cards, translator: Translator, lang: str):
+def translate_book(cards, translator: Translator, lang: str, checkpoint=None, checkpoint_offset=None):
     """Translate every card of one book, retrying holes individually.
 
     The main pass is the batch machinery from ``translate_cards`` (60-card
@@ -59,9 +59,22 @@ def translate_book(cards, translator: Translator, lang: str):
     and split recovery gives up at small batch sizes -- are then retried one
     at a time, with the previous card's text as context, for a few rounds.
 
+    When ``checkpoint`` (a path) is given, each card is appended to it as it
+    completes, so an interrupted book keeps the batches that were already
+    translated and the next run resumes from them instead of redoing the
+    whole book. ``checkpoint_offset`` (used when resuming) skips re-appending
+    the cards that were already loaded from the checkpoint.
+
     Returns (translated_cards, all_present: bool).
     """
-    translated = list(translate_cards(cards, translator, lang))
+    translated = []
+    if checkpoint is not None:
+        checkpoint.parent.mkdir(parents=True, exist_ok=True)
+    for i, card in enumerate(translate_cards(cards, translator, lang)):
+        translated.append(card)
+        if checkpoint is not None and (checkpoint_offset is None or i >= checkpoint_offset):
+            with open(checkpoint, "a", encoding="utf-8") as fh:
+                fh.write(card_to_line(card) + "\n")
     for _ in range(HOLE_ATTEMPTS):
         holes = missing_indices(translated)
         if not holes:
@@ -96,8 +109,40 @@ def process_book(src: Path, out: Path, translator: Translator, lang: str):
     if not missing_indices(cards):
         return "skipped", 0
 
+    # Resume an interrupted book from its checkpoint: the completed batches
+    # are already in the .partial file; only the missing tail needs to be
+    # translated. A stale checkpoint (different content, or more cards than
+    # the source) is discarded and the book restarts.
+    partial = out.with_name(out.name + ".partial")
+    checkpoint_cards = []
+    if partial.exists():
+        checkpoint_cards = list(cards_from_jsonl_file(partial))
+        if len(checkpoint_cards) <= len(cards) and all(
+            cc.text == cards[i].text for i, cc in enumerate(checkpoint_cards)
+        ):
+            tail = [
+                Card(
+                    title=c.title, author=c.author, start=c.start, end=c.end,
+                    text=c.text, translation="",
+                )
+                for c in cards[len(checkpoint_cards):]
+            ]
+            cards = checkpoint_cards + tail
+            logger.info(
+                "resuming %s from checkpoint (%d cards done)",
+                src.name, len(checkpoint_cards),
+            )
+        else:
+            logger.info("discarding stale checkpoint for %s", src.name)
+            partial.unlink()
+            checkpoint_cards = []
+
     t0 = time.time()
-    translated, complete = translate_book(cards, translator, lang)
+    translated, complete = translate_book(
+        cards, translator, lang,
+        checkpoint=partial,
+        checkpoint_offset=len(checkpoint_cards) if partial.exists() else None,
+    )
     if not complete:
         holes = len(missing_indices(translated))
         logger.error("%s: %d/%d cards still untranslated after retries", src, holes, len(cards))
@@ -107,7 +152,6 @@ def process_book(src: Path, out: Path, translator: Translator, lang: str):
         return "failed", 0
 
     out.parent.mkdir(parents=True, exist_ok=True)
-    partial = out.with_name(out.name + ".partial")
     with open(partial, "w", encoding="utf-8") as fh:
         fh.writelines(card_to_line(card) + "\n" for card in translated)
     os.replace(partial, out)
