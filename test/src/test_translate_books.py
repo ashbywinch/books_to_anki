@@ -198,6 +198,62 @@ class TestProcessBook:
         assert process_book(src, out, EmptyTranslator(), "English") == ("failed", 0)
         assert not out.exists()
 
+    def test_interrupted_book_resumes_from_checkpoint(self, tmp_path):
+        src = tmp_path / "src" / "book.jsonl"
+        out = tmp_path / "out" / "book.jsonl"
+        self.write_book(src, make_cards("book", 6))
+
+        class CrashSecondBatch(ScriptedTranslator):
+            batch_size = 3
+
+            def translate_cards(self, cards, lang, context=""):
+                self.calls.append(([c.text for c in cards], context, lang))
+                if len(self.calls) == 2:
+                    raise RuntimeError("api down")
+                return [f"T{i}" for i in range(1, len(cards) + 1)]
+
+        import pytest
+
+        with pytest.raises(RuntimeError):
+            process_book(src, out, CrashSecondBatch(), "English")
+        partial = out.with_name(out.name + ".partial")
+        assert partial.exists()
+        done = [
+            json.loads(l)["translation"]
+            for l in partial.read_text(encoding="utf-8").splitlines()
+            if l.strip()
+        ]
+        assert len(done) == 3 and all(done)  # first batch checkpointed
+
+        # resume: only the missing tail is translated, and the checkpoint is
+        # consumed into the final output
+        resumer = ScriptedTranslator()
+        assert process_book(src, out, resumer, "English") == ("ok", 6)
+        assert not partial.exists()
+        lines = out.read_text(encoding="utf-8").splitlines()
+        assert len(lines) == 6
+        assert all(json.loads(l)["translation"] for l in lines)
+        assert len(resumer.calls[0][0]) == 3  # only the tail was re-sent
+
+    def test_stale_checkpoint_is_discarded(self, tmp_path):
+        src = tmp_path / "src" / "book.jsonl"
+        out = tmp_path / "out" / "book.jsonl"
+        self.write_book(src, make_cards("book", 4))
+        partial = out.with_name(out.name + ".partial")
+        stale = make_cards("book", 4)
+        for c in stale:
+            c.text = "DIFFERENT TEXT"
+            c.translation = "stale"
+        self.write_book(partial, stale)
+
+        translator = ScriptedTranslator(["A", "B", "C", "D"])
+        assert process_book(src, out, translator, "English") == ("ok", 4)
+        assert not partial.exists()
+        assert [
+            json.loads(l)["translation"]
+            for l in out.read_text(encoding="utf-8").splitlines()
+        ] == ["A", "B", "C", "D"]
+
 
 class TestMain:
     def write_input_book(self, tmp_path, n=1):
