@@ -84,8 +84,10 @@ def translate_book(cards, translator: Translator, lang: str, checkpoint=None, ch
             try:
                 result = translator.translate_cards([translated[i]], lang, context)
                 translated[i].translation = result[0]
-            except (OpenCodeGoError, TypeError, ValueError):
-                pass  # try again next round
+            except (OpenCodeGoError, TypeError, ValueError) as e:
+                # a card that repeatedly fails must be visible, not silent
+                logger.warning("hole card %d failed: %s", i, e)
+                # try again next round
     return translated, not missing_indices(translated)
 
 
