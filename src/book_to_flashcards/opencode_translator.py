@@ -268,13 +268,17 @@ class OpenCodeGoTranslator(Translator):
         parsed = parse_translation_response(response, len(texts))
         translations = [""] * len(texts)
         for (index, (source, translation)), text in zip(parsed, texts):
-            if not _source_matches(source, text):
+            translations[index - 1] = translation
+            # With a single card there is nothing to shift against, so the
+            # echo check adds no protection and its false rejects (the model
+            # sometimes echoes sloppily on dense prose) stranded whole books
+            # at the deepest split level. Only verify when >= 2 cards.
+            if len(texts) > 1 and not _source_matches(source, text):
                 # the model paired a translation with the wrong fragment
                 raise ValueError(
                     f"Misaligned response for fragment {index}: "
                     f"source {source[:20]!r} does not match {text[:20]!r}"
                 )
-            translations[index - 1] = translation
         return translations
 
 
