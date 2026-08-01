@@ -41,7 +41,7 @@ def log(message: str) -> None:
 
 def batch_running() -> bool:
     result = subprocess.run(
-        ["pgrep", "-f", PROC_PATTERN], capture_output=True, text=True
+        ["pgrep", "-f", PROC_PATTERN], capture_output=True, text=True, check=False
     )
     return bool(result.stdout.strip())
 
@@ -70,14 +70,14 @@ def main() -> int:
                 )
                 return 0
         log("batch process gone without a finished summary — relaunching")
-        log_fh = open(BATCH_LOG, "a", encoding="utf-8")
-        proc = subprocess.Popen(
-            BATCH_CMD,
-            cwd=HERE,
-            stdout=log_fh,
-            stderr=subprocess.STDOUT,
-            start_new_session=True,
-        )
+        with open(BATCH_LOG, "a", encoding="utf-8") as log_fh:
+            proc = subprocess.Popen(
+                BATCH_CMD,
+                cwd=HERE,
+                stdout=log_fh,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
         log(f"relaunched batch (pid {proc.pid})")
 
 

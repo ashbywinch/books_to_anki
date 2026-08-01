@@ -43,8 +43,9 @@ DRIVER = [
     "30",
 ]
 POLL_SECONDS = 5 * 60
-# the unverified run's window (local time)
-UNVERIFIED_END = datetime(2026, 8, 1, 6, 9, 0)
+# the unverified run's window (machine-local time)
+LOCAL_TZ = datetime.now().astimezone().tzinfo
+UNVERIFIED_END = datetime(2026, 8, 1, 6, 9, 0, tzinfo=LOCAL_TZ)
 
 
 def log(message: str) -> None:
@@ -59,6 +60,7 @@ def batch_running() -> bool:
         ["pgrep", "-f", "book_to_flashcards.translate_books"],
         capture_output=True,
         text=True,
+        check=False,
     )
     return bool(result.stdout.strip())
 
@@ -68,6 +70,7 @@ def keepalive_running() -> bool:
         ["pgrep", "-f", "translate_keepalive"],
         capture_output=True,
         text=True,
+        check=False,
     )
     return bool(result.stdout.strip())
 
@@ -107,7 +110,7 @@ def run_mop_up() -> set[str]:
         segment_start = BATCH_LOG.stat().st_size if BATCH_LOG.exists() else 0
         log(f"mop-up attempt {attempt}: running driver")
         with open(BATCH_LOG, "a", encoding="utf-8") as fh:
-            proc = subprocess.run(DRIVER, cwd=HERE, stdout=fh, stderr=subprocess.STDOUT)
+            proc = subprocess.run(DRIVER, cwd=HERE, stdout=fh, stderr=subprocess.STDOUT, check=False)
         new_failures = parse_failures(segment_start)
         log(
             f"mop-up attempt {attempt}: exit={proc.returncode}, "
@@ -175,7 +178,7 @@ def still_unverified_count() -> int:
     for rel in rels:
         p = STAGING / rel
         if p.exists():
-            mt = datetime.fromtimestamp(p.stat().st_mtime)
+            mt = datetime.fromtimestamp(p.stat().st_mtime, tz=LOCAL_TZ)
             if mt < UNVERIFIED_END:
                 still += 1
     return still
