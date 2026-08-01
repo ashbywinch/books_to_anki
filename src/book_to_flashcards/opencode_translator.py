@@ -46,10 +46,14 @@ if the CONTEXT or the fragment itself is fragmentary. \
 Translate EACH fragment IN FULL: every line and every sentence of a fragment \
 must be translated, in order. NEVER summarize, condense, or translate only \
 the first sentence or first line of a fragment: a partial translation is an \
-error, not an acceptable answer. \
+error, not an acceptable answer. At the same time keep the translation \
+faithful but not padded: do not add explanatory or filler words - it should \
+be close to the source in length. \
 For EVERY fragment, also include a "source" field containing its opening \
 words, copied VERBATIM from the FRAGMENTS list (about the first 24 \
-characters of the fragment, ignoring leading whitespace). This lets us check \
+characters of the fragment, ignoring leading whitespace). Copy those \
+characters EXACTLY - do not normalize, correct, or modernize the opening \
+words, even if they look archaic, misspelled, or foreign. This lets us check \
 that each translation is paired with the right fragment. \
 Respond with ONLY a JSON array of objects, one per fragment, in the same \
 order, like this: [{{"index":1,"source":"...","translation":"..."}}]"""
