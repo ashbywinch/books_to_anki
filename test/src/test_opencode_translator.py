@@ -222,16 +222,32 @@ class TestOpenCodeGoTranslator:
 
     def test_misaligned_source_is_rejected(self):
         # the model paired a translation with the wrong fragment: the echoed
-        # source does not match the expected card, so the batch is rejected
+        # source does not match its card, so the batch is rejected. With two
+        # cards there is real alignment to protect.
         translator, _ = make_translator(
             [
-                completion('[{"index":1,"source":"totally different","translation":"one"}]'),
-                completion('[{"index":1,"source":"totally different","translation":"one"}]'),
+                completion(
+                    '[{"index":1,"source":"book 0","translation":"one"},{"index":2,"source":"totally different","translation":"two"}]'
+                ),
+                completion(
+                    '[{"index":1,"source":"book 0","translation":"one"},{"index":2,"source":"totally different","translation":"two"}]'
+                ),
+            ]
+        )
+        cards = make_cards("book", 2)
+        with pytest.raises(ValueError):
+            translator.translate_cards(cards, "English", "")
+
+    def test_single_card_skips_alignment_check(self):
+        # with one card there is nothing to shift against; the echo check is
+        # skipped so a sloppy echo cannot strand the book at the deepest split
+        translator, _ = make_translator(
+            [
+                completion('[{"index":1,"source":"nonsense","translation":"one"}]')
             ]
         )
         cards = make_cards("book", 1)
-        with pytest.raises(ValueError):
-            translator.translate_cards(cards, "English", "")
+        assert translator.translate_cards(cards, "English", "") == ["one"]
 
     def test_echo_with_list_numbering_prefix_passes(self):
         # the model sometimes echoes the prompt's "[N] " numbering before the
