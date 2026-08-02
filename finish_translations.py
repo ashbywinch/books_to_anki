@@ -95,12 +95,12 @@ def wait_for_batch_to_finish() -> None:
     log("no batch or keep-alive running; proceeding to mop-up")
 
 
-def parse_failures(segment_start: int) -> set[str]:
+def parse_failures(segment_start: int, batch_log: Path = BATCH_LOG) -> set[str]:
     """Book identifiers that failed or crashed in the log segment."""
     import re
 
     failures: set[str] = set()
-    with open(BATCH_LOG, encoding="utf-8") as fh:
+    with open(batch_log, encoding="utf-8") as fh:
         fh.seek(segment_start)
         for line in fh:
             m = re.search(r"ERROR (?:book )?(/.*?\.jsonl)", line)
@@ -109,20 +109,38 @@ def parse_failures(segment_start: int) -> set[str]:
     return failures
 
 
-def run_mop_up() -> set[str]:
-    """Re-run the driver until no failures, or the same set fails twice."""
+def run_mop_up(
+    driver: list[str] = DRIVER, batch_log: Path = BATCH_LOG
+) -> set[str] | None:
+    """Re-run the driver until no failures, or the same set fails twice.
+
+    Returns the set of still-failed books, or None when the driver itself
+    failed (non-zero exit) without logging any book failures — e.g. the
+    translator constructor raises on a missing API key before the worker
+    pool starts. Callers must treat None as a driver-level failure, not a
+    clean run.
+    """
     failures: set[str] = set()
     for attempt in range(1, 7):
-        segment_start = BATCH_LOG.stat().st_size if BATCH_LOG.exists() else 0
+        segment_start = batch_log.stat().st_size if batch_log.exists() else 0
         log(f"mop-up attempt {attempt}: running driver")
-        with open(BATCH_LOG, "a", encoding="utf-8") as fh:
-            proc = subprocess.run(DRIVER, cwd=HERE, stdout=fh, stderr=subprocess.STDOUT, check=False)
-        new_failures = parse_failures(segment_start)
+        with open(batch_log, "a", encoding="utf-8") as fh:
+            proc = subprocess.run(driver, cwd=HERE, stdout=fh, stderr=subprocess.STDOUT, check=False)
+        new_failures = parse_failures(segment_start, batch_log)
         log(
             f"mop-up attempt {attempt}: exit={proc.returncode}, "
             f"{len(new_failures)} failed books"
         )
         if not new_failures:
+            if proc.returncode != 0:
+                # the driver died before reporting any books; copying the
+                # stale staging would silently skip the re-translation the
+                # mop-up exists to perform
+                log(
+                    f"driver exited {proc.returncode} with no parsed failures; "
+                    "aborting mop-up"
+                )
+                return None
             return set()
         if new_failures == failures:
             log(f"failed set unchanged ({len(new_failures)} books); stopping mop-up")
@@ -205,6 +223,9 @@ def main() -> int:
 
     log("mop-up phase starting")
     stuck = run_mop_up()
+    if stuck is None:
+        log("aborting: driver failed; not copying staging to site")
+        return 1
 
     log("copying staging to site")
     copied = copy_staging_to_site()

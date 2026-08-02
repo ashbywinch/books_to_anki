@@ -328,6 +328,47 @@ def find_api_key() -> str:
     )
 
 
+def _splice_bare_objects(text: str) -> str:
+    r"""Insert commas between adjacent top-level JSON objects.
+
+    Only splices outside string literals: translations can contain quoted
+    braces (literary text), and a naive ``}\s*{{`` regex would corrupt them.
+    """
+    out: list[str] = []
+    in_str = False
+    escaped = False
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        if in_str:
+            out.append(ch)
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_str = False
+            i += 1
+            continue
+        if ch == '"':
+            in_str = True
+            out.append(ch)
+            i += 1
+            continue
+        if ch == "}":
+            j = i + 1
+            while j < n and text[j] in " \t\r\n":
+                j += 1
+            if j < n and text[j] == "{":
+                out.append("},{")
+                i = j + 1  # the "{" is part of the splice; don't re-append
+                continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
 def parse_translation_response(response: str, expected: int) -> list[tuple[int, tuple[str, str]]]:
     """Parse the model's numbered translation list.
 
@@ -350,7 +391,7 @@ def parse_translation_response(response: str, expected: int) -> list[tuple[int, 
         if first_brace != -1 and last_brace > first_brace:
             # separate the bare objects (which may be newline-joined) with
             # commas before wrapping in an array
-            text = "[" + re.sub(r"}\s*{", "},{", text[first_brace : last_brace + 1]) + "]"
+            text = "[" + _splice_bare_objects(text[first_brace : last_brace + 1]) + "]"
             start, end = 0, len(text) - 1
         else:
             raise ValueError(f"No JSON array in response: {response[:200]!r}")
