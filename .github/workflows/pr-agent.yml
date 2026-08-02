@@ -20,7 +20,11 @@ jobs:
           OPENAI_KEY: ${{ secrets.OPENCODE_GO_BOOKS_API_KEY }}
           OPENAI_BASE_URL: https://opencode.ai/zen/go/v1
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_AGENT_CONFIG_BRANCH: ${{ github.head_ref }}
+          # SECURITY: pin the config to a maintainer-controlled branch. Using
+          # ${{ github.head_ref }} lets any same-repo branch ship its own
+          # .pr_agent.toml (e.g. api_base pointing at an attacker endpoint)
+          # and exfiltrate OPENCODE_GO_BOOKS_API_KEY.
+          PR_AGENT_CONFIG_BRANCH: pr-agent-config
 
       - name: Check review succeeded
         env:
