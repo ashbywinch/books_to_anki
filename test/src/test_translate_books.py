@@ -1,6 +1,7 @@
 """Tests for the parallel book translation driver."""
 
 import json
+from pathlib import Path
 
 from book_to_flashcards.Card import Card
 from book_to_flashcards.opencode_translator import OpenCodeGoError
@@ -138,9 +139,9 @@ class TestProcessBook:
         with open(path, "w", encoding="utf-8") as fh:
             fh.writelines(card_to_line(c) + "\n" for c in cards)
 
-    def test_skips_when_output_already_complete(self, tmp_path):
-        src = tmp_path / "src" / "book.jsonl"
-        out = tmp_path / "out" / "book.jsonl"
+    def test_skips_when_output_already_complete(self, fs):
+        src = Path("/") / "src" / "book.jsonl"
+        out = Path("/") / "out" / "book.jsonl"
         done = make_cards("book", 2)
         for card in done:
             card.translation = "done"
@@ -150,9 +151,9 @@ class TestProcessBook:
         assert process_book(src, out, translator, "English") == ("skipped", 0)
         assert translator.calls == []
 
-    def test_skips_stale_pre_card_schema_file(self, tmp_path):
-        src = tmp_path / "src" / "book.jsonl"
-        out = tmp_path / "out" / "book.jsonl"
+    def test_skips_stale_pre_card_schema_file(self, fs):
+        src = Path("/") / "src" / "book.jsonl"
+        out = Path("/") / "out" / "book.jsonl"
         self.write_book(
             src,
             [Card(title="t", author="a", start=0, end=1, text="x", translation="y")],
@@ -161,15 +162,15 @@ class TestProcessBook:
             fh.write('{"filename": "old.jsonl", "index_in_file": 1}\n')
         assert process_book(src, out, ScriptedTranslator(), "English") == ("skipped", 0)
 
-    def test_empty_input(self, tmp_path):
-        src = tmp_path / "src" / "book.jsonl"
-        out = tmp_path / "out" / "book.jsonl"
+    def test_empty_input(self, fs):
+        src = Path("/") / "src" / "book.jsonl"
+        out = Path("/") / "out" / "book.jsonl"
         self.write_book(src, [])
         assert process_book(src, out, ScriptedTranslator(), "English") == ("empty-input", 0)
 
-    def test_skips_when_input_fully_translated(self, tmp_path):
-        src = tmp_path / "src" / "book.jsonl"
-        out = tmp_path / "out" / "book.jsonl"
+    def test_skips_when_input_fully_translated(self, fs):
+        src = Path("/") / "src" / "book.jsonl"
+        out = Path("/") / "out" / "book.jsonl"
         done = make_cards("book", 2)
         for card in done:
             card.translation = "done"
@@ -178,9 +179,9 @@ class TestProcessBook:
         assert process_book(src, out, translator, "English") == ("skipped", 0)
         assert translator.calls == []
 
-    def test_happy_path_writes_atomic_output(self, tmp_path):
-        src = tmp_path / "src" / "book.jsonl"
-        out = tmp_path / "out" / "book.jsonl"
+    def test_happy_path_writes_atomic_output(self, fs):
+        src = Path("/") / "src" / "book.jsonl"
+        out = Path("/") / "out" / "book.jsonl"
         self.write_book(src, make_cards("book", 3))
         translator = ScriptedTranslator(["T1", "T2", "T3"])
         assert process_book(src, out, translator, "English") == ("ok", 3)
@@ -191,16 +192,16 @@ class TestProcessBook:
         # no .partial leftovers
         assert not out.with_name(out.name + ".partial").exists()
 
-    def test_failed_book_writes_nothing(self, tmp_path):
-        src = tmp_path / "src" / "book.jsonl"
-        out = tmp_path / "out" / "book.jsonl"
+    def test_failed_book_writes_nothing(self, fs):
+        src = Path("/") / "src" / "book.jsonl"
+        out = Path("/") / "out" / "book.jsonl"
         self.write_book(src, make_cards("book", 2))
         assert process_book(src, out, EmptyTranslator(), "English") == ("failed", 0)
         assert not out.exists()
 
-    def test_interrupted_book_resumes_from_checkpoint(self, tmp_path):
-        src = tmp_path / "src" / "book.jsonl"
-        out = tmp_path / "out" / "book.jsonl"
+    def test_interrupted_book_resumes_from_checkpoint(self, fs):
+        src = Path("/") / "src" / "book.jsonl"
+        out = Path("/") / "out" / "book.jsonl"
         self.write_book(src, make_cards("book", 6))
 
         class CrashSecondBatch(ScriptedTranslator):
@@ -235,9 +236,9 @@ class TestProcessBook:
         assert all(json.loads(l)["translation"] for l in lines)
         assert len(resumer.calls[0][0]) == 3  # only the tail was re-sent
 
-    def test_stale_checkpoint_is_discarded(self, tmp_path):
-        src = tmp_path / "src" / "book.jsonl"
-        out = tmp_path / "out" / "book.jsonl"
+    def test_stale_checkpoint_is_discarded(self, fs):
+        src = Path("/") / "src" / "book.jsonl"
+        out = Path("/") / "out" / "book.jsonl"
         self.write_book(src, make_cards("book", 4))
         partial = out.with_name(out.name + ".partial")
         stale = make_cards("book", 4)
@@ -256,8 +257,8 @@ class TestProcessBook:
 
 
 class TestMain:
-    def write_input_book(self, tmp_path, n=1):
-        src = tmp_path / "src" / "author"
+    def write_input_book(self, tmp_path=None, n=1):
+        src = Path("/") / "src" / "author"
         src.mkdir(parents=True)
         with open(src / "book.jsonl", "w", encoding="utf-8") as fh:
             fh.writelines(card_to_line(c) + "\n" for c in make_cards("book", n))
@@ -269,36 +270,36 @@ class TestMain:
 
         return factory
 
-    def test_main_reports_failure_exit_code(self, tmp_path):
-        self.write_input_book(tmp_path)
+    def test_main_reports_failure_exit_code(self, fs):
+        self.write_input_book()
         rc = main(
-            ["--input", str(tmp_path / "src"), "--output", str(tmp_path / "out"), "--workers", "1"],
+            ["--input", str(Path("/") / "src"), "--output", str(Path("/") / "out"), "--workers", "1"],
             translator_factory=self.make_factory(EmptyTranslator()),
         )
         assert rc == 1
 
-    def test_main_succeeds_when_books_translate(self, tmp_path):
-        self.write_input_book(tmp_path)
+    def test_main_succeeds_when_books_translate(self, fs):
+        self.write_input_book()
         rc = main(
-            ["--input", str(tmp_path / "src"), "--output", str(tmp_path / "out"), "--workers", "1"],
+            ["--input", str(Path("/") / "src"), "--output", str(Path("/") / "out"), "--workers", "1"],
             translator_factory=self.make_factory(ScriptedTranslator(["T1"])),
         )
         assert rc == 0
-        out = tmp_path / "out" / "author" / "book.jsonl"
+        out = Path("/") / "out" / "author" / "book.jsonl"
         assert out.exists()
         assert json.loads(out.read_text(encoding="utf-8").splitlines()[0])["translation"] == "T1"
 
-    def test_main_respects_only_author_filter(self, tmp_path):
-        src = tmp_path / "src"
+    def test_main_respects_only_author_filter(self, fs):
+        src = Path("/") / "src"
         (src / "author1").mkdir(parents=True)
         (src / "author2").mkdir(parents=True)
         for author in ("author1", "author2"):
             with open(src / author / "book.jsonl", "w", encoding="utf-8") as fh:
                 fh.writelines(card_to_line(c) + "\n" for c in make_cards("book", 1))
         rc = main(
-            ["--input", str(src), "--output", str(tmp_path / "out"), "--workers", "1", "--only-author", "author2"],
+            ["--input", str(src), "--output", str(Path("/") / "out"), "--workers", "1", "--only-author", "author2"],
             translator_factory=self.make_factory(ScriptedTranslator(["T1"])),
         )
         assert rc == 0
-        assert (tmp_path / "out" / "author2" / "book.jsonl").exists()
-        assert not (tmp_path / "out" / "author1" / "book.jsonl").exists()
+        assert (Path("/") / "out" / "author2" / "book.jsonl").exists()
+        assert not (Path("/") / "out" / "author1" / "book.jsonl").exists()
