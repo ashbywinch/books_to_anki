@@ -13,7 +13,7 @@ Same result every run, any order, any machine:
 - **No external APIs** — the translation API is injected via `urlopen=`; tests supply a `FakeUrlopen` returning canned responses.
 - **No wall-clock time** — the translator's retry/split logic is tested by feeding scripted failures, not by sleeping.
 - **No execution-order dependence** — each test sets up its own cards and tears down nothing shared. `--testmon` in the default pytest config skips unrelated tests; CI runs `--no-testmon` so the full suite always runs.
-- **No filesystem dependence** — `pytest` `tmp_path` or `pyfakefs` (`fs` fixture) for tests that read/write files; never repo-relative paths.
+- **No filesystem dependence** — `pyfakefs` (`fs` fixture) for tests that read/write files; never repo-relative paths. Exception: tests that shell out to the CLI (`subprocess` in `test_cli.py`) keep `tmp_path` — the child process sees the real filesystem.
 
 ## No Monkeypatching
 
