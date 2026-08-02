@@ -1,0 +1,28 @@
+[openai]
+api_base = "https://opencode.ai/zen/go/v1"
+
+[config]
+model = "openai/deepseek-v4-flash"
+custom_model_max_tokens = 128000
+max_model_tokens = 128000
+ai_timeout = 1800  # review generation for the ~89K-token diff needs >10 min; 600s caused 4x10m timeouts then failure
+propagate_tool_errors = true
+fallback_models = []
+repo_context_from_default_branch = false
+repo_context_files = [
+    "docs/coding-standards.md",
+    "docs/testing-standards.md",
+    "docs/writing-documentation.md",
+    "docs/card-pipeline.md",
+]
+
+[pr_reviewer]
+require_tests_review = true
+require_security_review = true
+require_estimate_effort_to_review = true
+num_max_findings = 5
+extra_instructions = "In addition to your standard review, check the PR against each file in repo_context_files. Add a 'Compliance' section per doc: 'Coding Standards', 'Testing Standards', 'Documentation Standards', 'Card Pipeline'. For each, list any violations found, or state 'No violations' if the PR complies."
+
+[github_action_config]
+handle_push_trigger = true
+push_commands = ["/review", "/improve"]
