@@ -188,6 +188,11 @@ def main(
 
     inp = Path(args.input)
     out = Path(args.output)
+    if not inp.is_dir():
+        # fail loudly: a missing input would otherwise report success for an
+        # empty run and the orchestrator/keepalive would treat it as done
+        logger.error("input directory does not exist: %s", inp)
+        return 1
     jobs = []
     for f in sorted(inp.glob("*/*.jsonl")):
         if args.only_author and f.parent.name != args.only_author:

@@ -26,10 +26,7 @@ A new processing step that fits this shape belongs in the pipeline, not in a bes
 
 ## Card Model
 
-- `Card` is a dataclass: `title`, `author`, `start`, `end`, `text`, `translation` (default `""`).
-- `start`/`end` are **absolute character offsets** into the source `.txt` file. Cards tile the book: consecutive cards in a book have `card[n].end == card[n+1].start`; a gap or overlap is a bug.
-- `translation == ""` means "not translated". **A non-empty translation is never re-sent to the API** — the translate step skips it. Never clear a translation to force a retry; fix the text, not the flag.
-- Round-tripping through JSONL must be lossless: `Card` fields map 1:1 to JSON object fields.
+`Card(title, author, start, end, text, translation="")` — dataclass; `translation == ""` means "not translated". The full contract (tiling, translation-skip semantics, JSONL round-trip) lives in `docs/card-pipeline.md` ("The Card Contract").
 
 ## Translators
 
@@ -39,7 +36,7 @@ A new processing step that fits this shape belongs in the pipeline, not in a bes
 - **Context is read-only input.** The `context` string is the text preceding the batch in its book — use it to resolve pronouns and references, never to echo content back.
 - **`translate_text` is the legacy string-level interface** used by the dummy translator and tests; new translators implement `translate_cards`.
 - **Never mutate the input cards' `text` or `start`/`end`.** Assign `card.translation` only.
-- **Failures must be observable.** Log every failed batch with the book and batch size; retry whole batch once, then split in half (bounded); only then raise. See `docs/card-pipeline.md` for the contract.
+- **Failures must be observable.** Log every failed batch with the book and batch size. The retry/split recovery contract lives in `docs/card-pipeline.md`.
 
 ## API Keys & Secrets
 

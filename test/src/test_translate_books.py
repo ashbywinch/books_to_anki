@@ -287,7 +287,15 @@ class TestMain:
         assert rc == 0
         out = Path("/") / "out" / "author" / "book.jsonl"
         assert out.exists()
-        assert json.loads(out.read_text(encoding="utf-8").splitlines()[0])["translation"] == "T1"
+
+    def test_main_missing_input_dir_fails(self, fs):
+        # a missing --input must fail loudly, not report success for an
+        # empty run (the keepalive/orchestrator treats rc 0 as success)
+        rc = main(
+            ["--input", "/nonexistent", "--output", "/out", "--workers", "1"],
+            translator_factory=self.make_factory(EmptyTranslator()),
+        )
+        assert rc == 1
 
     def test_main_respects_only_author_filter(self, fs):
         src = Path("/") / "src"

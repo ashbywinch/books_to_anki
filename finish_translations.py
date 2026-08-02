@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -24,7 +25,12 @@ from pathlib import Path
 HERE = Path(__file__).parent
 BATCH_LOG = HERE / "translate-batch.log"
 STAGING = HERE / "data/translations-site"
-SITE = Path("/home/ashby/Documents/code/side-by-side/public/api/books/ru")
+SITE = Path(
+    os.environ.get(
+        "SIDE_BY_SIDE_BOOKS_DIR",
+        "/home/ashby/Documents/code/side-by-side/public/api/books/ru",
+    )
+)
 UNVERIFIED_LIST = HERE / "unverified-books.txt"
 SUMMARY_LOG = HERE / "finish-translations.log"
 DRIVER = [
@@ -165,18 +171,23 @@ def flag_translated() -> int:
     return n_translated
 
 
-def still_unverified_count() -> int:
-    """Of the recorded unverified books, how many were NOT re-translated since?"""
-    if not UNVERIFIED_LIST.exists():
+def still_unverified_count(
+    staging: Path = STAGING, unverified_list: Path = UNVERIFIED_LIST
+) -> int:
+    """Of the recorded unverified books, how many were NOT re-translated since?
+
+    Paths are parameters so callers and tests can inject them.
+    """
+    if not unverified_list.exists():
         return 0
     rels = [
         l.strip()
-        for l in UNVERIFIED_LIST.read_text(encoding="utf-8").splitlines()
+        for l in unverified_list.read_text(encoding="utf-8").splitlines()
         if l.strip() and not l.startswith("#")
     ]
     still = 0
     for rel in rels:
-        p = STAGING / rel
+        p = staging / rel
         if p.exists():
             mt = datetime.fromtimestamp(p.stat().st_mtime, tz=LOCAL_TZ)
             if mt < UNVERIFIED_END:

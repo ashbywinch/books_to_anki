@@ -10,6 +10,7 @@ appears.
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import time
@@ -18,12 +19,20 @@ from pathlib import Path
 HERE = Path(__file__).parent
 BATCH_LOG = HERE / "translate-batch.log"
 KEEPALIVE_LOG = HERE / "translate-keepalive.log"
+# machine-specific input stays overridable; a missing directory must fail
+# loudly rather than silently reading an empty glob
+SITE_BOOKS = Path(
+    os.environ.get(
+        "SIDE_BY_SIDE_BOOKS_DIR",
+        "/home/ashby/Documents/code/side-by-side/public/api/books/ru",
+    )
+)
 BATCH_CMD = [
     sys.executable,
     "-m",
     "book_to_flashcards.translate_books",
     "--input",
-    "/home/ashby/Documents/code/side-by-side/public/api/books/ru",
+    str(SITE_BOOKS),
     "--output",
     str(HERE / "data/translations-site"),
     "--workers",
