@@ -181,6 +181,10 @@ def still_unverified_count() -> int:
             mt = datetime.fromtimestamp(p.stat().st_mtime, tz=LOCAL_TZ)
             if mt < UNVERIFIED_END:
                 still += 1
+        else:
+            # no staging file = never re-translated (stuck or deleted);
+            # excluding it would under-report the acceptance metric
+            still += 1
     return still
 
 

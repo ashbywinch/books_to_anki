@@ -456,6 +456,54 @@ class TestOpenCodeGoTranslator:
         with pytest.raises(OpenCodeGoError):
             translator.translate_cards(cards, "English", "")
 
+    def test_thinking_fallback_does_not_consume_retry_budget(self):
+        # a 400 (thinking rejected) on the LAST attempt must still re-send
+        # without thinking instead of falling off the loop; the fallback
+        # must not count against max_retries
+        import io
+
+        def http_err(code):
+            return urllib.error.HTTPError(
+                "url", code, "err", {}, io.BytesIO(b"x")
+            )
+
+        urlopen, calls = make_fake_urlopen(
+            [http_err(400), completion('[{"index":1,"source":"book 0","translation":"one"}]')]
+        )
+        translator = OpenCodeGoTranslator(
+            api_key="test-key", urlopen=urlopen, max_retries=0
+        )
+        cards = make_cards("book", 1)
+        assert translator.translate_cards(cards, "English", "") == ["one"]
+        # the re-send must have dropped the thinking param
+        payload = json.loads(calls[1].data)
+        assert "thinking" not in payload
+
+    def test_thinking_fallback_after_budget_burning_429(self):
+        # 5xx/429 errors consume the budget; a 400 arriving on the last
+        # attempt must still trigger the no-thinking re-send
+        import io
+
+        def http_err(code):
+            return urllib.error.HTTPError(
+                "url", code, "err", {}, io.BytesIO(b"x")
+            )
+
+        urlopen, calls = make_fake_urlopen(
+            [
+                http_err(429),
+                http_err(400),
+                completion('[{"index":1,"source":"book 0","translation":"one"}]'),
+            ]
+        )
+        translator = OpenCodeGoTranslator(
+            api_key="test-key", urlopen=urlopen, max_retries=1
+        )
+        cards = make_cards("book", 1)
+        assert translator.translate_cards(cards, "English", "") == ["one"]
+        assert len(calls) == 3
+        assert "thinking" not in json.loads(calls[2].data)
+
 
 class TestFindApiKey:
     def test_env_var_wins(self, monkeypatch):
