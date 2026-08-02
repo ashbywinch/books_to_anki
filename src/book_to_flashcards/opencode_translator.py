@@ -156,22 +156,30 @@ class OpenCodeGoTranslator(Translator):
             method="POST",
         )
         delay = 2.0
-        for attempt in range(self.max_retries + 1):
+        attempt = 0
+        while True:
             try:
                 with self._urlopen(request, timeout=self.timeout) as response:
                     data = json.loads(response.read().decode("utf-8"))
                 break
             except urllib.error.HTTPError as e:
-                if e.code in (429, 500, 502, 503, 529) and attempt < self.max_retries:
+                if e.code in (429, 500, 502, 503, 529):
+                    if attempt >= self.max_retries:
+                        raise OpenCodeGoError(
+                            f"OpenCode Go API error {e.code}: {e.read().decode('utf-8', 'replace')[:200]}"
+                        ) from e
                     time.sleep(delay)
                     delay *= 2
+                    attempt += 1
                     continue
                 if (
                     e.code in (400, 422)
                     and self.disable_thinking
                     and payload.get("thinking")
                 ):
-                    # model doesn't understand the thinking param - retry without it
+                    # model doesn't understand the thinking param - retry without it.
+                    # The fallback must NOT consume the retry budget: a 400
+                    # arriving on the last attempt still re-sends.
                     logger.warning(
                         "model %s rejected the thinking param (HTTP %d); retrying without it",
                         self.model, e.code,
@@ -187,15 +195,14 @@ class OpenCodeGoTranslator(Translator):
                 # timeouts) are OSErrors, not HTTPErrors; retry with the same
                 # backoff so the batch/split recovery only sees failures that
                 # exhausted the retry budget
-                if attempt < self.max_retries:
-                    time.sleep(delay)
-                    delay *= 2
-                    continue
-                raise OpenCodeGoError(
-                    f"OpenCode Go API request failed: {e!r}"
-                ) from e
-        else:  # pragma: no cover - only reachable if retries exhaust without break
-            raise OpenCodeGoError("OpenCode Go API request failed after retries")
+                if attempt >= self.max_retries:
+                    raise OpenCodeGoError(
+                        f"OpenCode Go API request failed: {e!r}"
+                    ) from e
+                time.sleep(delay)
+                delay *= 2
+                attempt += 1
+                continue
         try:
             content = data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as e:

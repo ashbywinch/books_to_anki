@@ -185,9 +185,10 @@ def cards_to_anki(
             decks.append(deck)
             on_file_complete()
 
-    except OpenCodeGoError as e:
+    except (OpenCodeGoError, ValueError, TypeError) as e:
         # this takes a very long time, if it falls over we'd like to have some intermediate results!
-        # it can fall over because the translation API failed.
+        # it can fall over because the translation API failed (malformed responses and
+        # alignment failures surface as ValueError/TypeError after retry/split exhaustion).
         genanki.Package(decks).write_to_file(ankifile)
         click.echo("Problem with the translation API:")
         click.echo(e)
