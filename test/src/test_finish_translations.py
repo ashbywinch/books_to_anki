@@ -22,3 +22,20 @@ def test_still_unverified_counts_missing_staging_files(fs):
     # book1 missing from staging -> still unverified (1); book2 exists with a
     # fresh mtime -> re-translated (0)
     assert ft.still_unverified_count(staging=staging, unverified_list=listing) == 1
+
+
+def test_run_mop_up_clean_run(tmp_path):
+    # subprocess-based (the driver runs a child process that sees the real
+    # filesystem) — tmp_path, not pyfakefs
+    batch_log = tmp_path / "batch.log"
+    batch_log.write_text("", encoding="utf-8")
+    assert ft.run_mop_up(driver=["/bin/true"], batch_log=batch_log) == set()
+
+
+def test_run_mop_up_driver_failure_without_failures(tmp_path):
+    # driver exits non-zero without logging any per-book failures (e.g. the
+    # translator constructor raises on a missing API key): the mop-up must
+    # surface a driver-level failure, not report a clean run
+    batch_log = tmp_path / "batch.log"
+    batch_log.write_text("", encoding="utf-8")
+    assert ft.run_mop_up(driver=["/bin/false"], batch_log=batch_log) is None

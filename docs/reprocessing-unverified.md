@@ -43,7 +43,10 @@ EOF
    them fresh — never delete anything under the site repo):
 
 ```bash
-xargs -a reprocess-now.txt -d '\n' rm -v data/translations-site/
+# each line must be prefixed with the staging dir — a bare relative path
+# would not exist from the repo root, and rm would error on the directory
+# itself, silently leaving every checkpoint in place
+xargs -a reprocess-now.txt -d '\n' -I{} rm -v "data/translations-site/{}"
 ```
 
 3. Run the orchestrator detached. It re-runs the driver (resume — only the

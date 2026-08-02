@@ -315,8 +315,21 @@ class TestOpenCodeGoTranslator:
         )
         assert translator.translate_cards([card], "English", "") == ["one"]
 
-    def test_bare_object_stream_is_parsed(self):
-        # the model sometimes omits the array wrapper entirely
+    def test_bare_object_splice_ignores_quoted_braces(self):
+        # a translation containing "} {" (quoted braces) must survive the
+        # bare-object splice: the splice must not touch string literals
+        response = (
+            '{"index":1,"source":"book 0","translation":"a } { b"}\n'
+            '{"index":2,"source":"book 1","translation":"two"}'
+        )
+        translator, _ = make_translator([completion(response)])
+        cards = make_cards("book", 2)
+        assert translator.translate_cards(cards, "English", "") == [
+            "a } { b",
+            "two",
+        ]
+
+    def test_bare_object_stream_is_parsed(self):        # the model sometimes omits the array wrapper entirely
         translator, _ = make_translator(
             [
                 completion(
