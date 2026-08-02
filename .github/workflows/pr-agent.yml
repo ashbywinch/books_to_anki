@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: the-pr-agent/pr-agent@b249e568e0c0fb6c674ace55fe95d02f62f8f3b3
+      - uses: the-pr-agent/pr-agent@v0.41.1
         id: pr-agent
         env:
           OPENAI_KEY: ${{ secrets.OPENCODE_GO_BOOKS_API_KEY }}
