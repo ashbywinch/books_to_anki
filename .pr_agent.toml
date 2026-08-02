@@ -1,5 +1,4 @@
 [openai]
-custom_llm_provider = "openai"
 api_base = "https://opencode.ai/zen/go/v1"
 
 [config]

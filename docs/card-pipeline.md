@@ -37,9 +37,9 @@ The pipeline: `.txt` files → spaCy splitting → `Card`s → translation (Open
 
 - Direct OpenAI-compatible calls to `https://opencode.ai/zen/go/v1`; key via `find_api_key()` (env `OPENCODE_API_KEY`, else opencode's `auth.json`).
 - **`thinking: {"type": "disabled"}` is sent by default** — deepseek-v4-flash otherwise burns the whole output budget on reasoning and returns empty content for large batches. If a model rejects the param (HTTP 400/422), the client retries once without it.
-- **Response contract**: the model must return a JSON array `[{"index": N, "translation": "..."}]` covering exactly indices `1..len(cards)`. Fences/prose around the JSON are tolerated; missing, duplicate, or extra indices are a failure.
+- **Response contract**: the model must return a JSON array `[{"index": N, "source": <echo of the card's opening>, "translation": "..."}]` covering exactly indices `1..len(cards)`. `source` must echo each card's opening ~24 chars verbatim (2-edit tolerance; check skipped for single-card batches). Fences/prose around the JSON are tolerated; missing, duplicate, or extra indices are a failure.
 - **Failure recovery**: log every failure (book, batch size, error) → retry the whole batch once → split in half, recurse (bounded depth 6) → a single card gets one more attempt → raise. A batch that raises leaves no partially-written cards (cards are only emitted after their batch's translations return).
-- **Never translate per card in a loop.** If the API is flaky, the recovery splits; per-card calls are the last resort inside recovery only.
+- **Never translate per card in a loop** in the translator. If the API is flaky, the recovery splits; per-card calls are the last resort inside recovery only. The driver's hole-fill loop (`translate_books.py`) is the exception: after a book's batches complete, remaining untranslated cards are retried one at a time with the preceding text as context.
 
 ### Persistence during long runs
 
