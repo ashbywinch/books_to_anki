@@ -97,14 +97,19 @@ class VocabLevelCalculator(ComplexityCalculator):
         return sorted_keys[-1] 
 
     def process_token(self, token: Token) -> dict[str, int]:
-        """Processes a single token, returning a frequency map of its vocabulary level.
-        
+        """Processes a single word token, returning a frequency map of its vocabulary level.
+
+        Punctuation, digits, and spaces are ignored so that the small-sample cutoff
+        and the percentile are based on word count, matching ``WordCountCalculator``.
+
         Args:
             token: The spaCy `Token` to process.
-            
+
         Returns:
-            A dictionary like {"level_name": 1}.
+            A dictionary like {"level_name": 1}, or an empty dictionary for non-words.
         """
+        if token.is_punct or token.is_digit or token.is_space:
+            return {}
         return {self.levels.get_level(token): 1}
 
     def combine_values(self, dict1: dict[str, int], dict2: dict[str, int]) -> dict[str, int]:
