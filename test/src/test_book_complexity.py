@@ -160,6 +160,49 @@ class TestBookComplexityOnMultipleLongerStrings:
         # Calculation: {'A1': 10, 'A2': 1}. 95th percentile of 11 words is 10.45th word -> A2
         assert complexity["Vocab Level"] == 'A2'
 
+    def test_vocabulary_level_cutoff_ignores_punctuation(self, en_nlp):
+        frequencies = {"apple": 50}
+        levels = {"A1": range(400)}
+        # 9 words plus 9 punctuation marks. The cutoff must count words, not tokens.
+        teststrings = ["apple, " * 8 + "apple."]
+
+        complexity = get_book_complexity(
+            teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels),
+            small_sample_size_cutoff=10
+        )
+
+        assert complexity["Word Count"] == 9
+        assert complexity["Vocab Level"] == ""
+
+    def test_vocabulary_level_cutoff_counts_words_at_boundary(self, en_nlp):
+        frequencies = {"apple": 50}
+        levels = {"A1": range(400)}
+        # 10 words plus 10 punctuation marks; exactly at the cutoff, so analysed.
+        teststrings = ["apple, " * 9 + "apple."]
+
+        complexity = get_book_complexity(
+            teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels),
+            small_sample_size_cutoff=10
+        )
+
+        assert complexity["Word Count"] == 10
+        assert complexity["Vocab Level"] == "A1"
+
+    def test_vocabulary_level_punctuation_does_not_bias_percentile(self, en_nlp):
+        frequencies = {"rare": 2500}
+        levels = {"A1": range(1000), "B1": range(2000, 5000)}
+        # One B1 word surrounded by A1-frequency punctuation. Punctuation must not
+        # dilute the percentile towards A1.
+        teststrings = ["rare" + ", " * 20]
+
+        complexity = get_book_complexity(
+            teststrings, en_nlp, vocab_levels=VocabLevels(frequencies=frequencies, levels=levels),
+            small_sample_size_cutoff=1
+        )
+
+        assert complexity["Word Count"] == 1
+        assert complexity["Vocab Level"] == "B1"
+
     def test_complexities(self, en_nlp):
         files = sorted(glob("test/data/dummy_books/**/*.txt", recursive=True))
         complexities = list(get_complexities(files, nlp=en_nlp, vocab=None, known_morph_list=None, small_sample_size_cutoff=DEFAULT_SMALL_SAMPLE_SIZE_CUTOFF))

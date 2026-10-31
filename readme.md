@@ -133,7 +133,7 @@ The metrics included are
     | >20000      | C2         |
 
     Currently this option returns the 95th percentile estimated "level" of all the words in the text. So, a text with only very simple words would be assessed as level A1, and a text with more than 5% of "B2" words would be assessed as level B2. It ignores words that are not in the frequency list.
-    Texts with less than 250 words are not analysed since they can give misleading levels.
+    Texts with less than 250 words are not analysed since they can give misleading levels. Punctuation, digits, and spaces are not counted as words for the level calculation or the cutoff.
 
 Use the help command to get more details on the options for these commands:
 
