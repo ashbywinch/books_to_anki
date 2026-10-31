@@ -35,7 +35,7 @@ From a command line, run
 
 Use the instructions at the top of the page here <https://spacy.io/usage/> to configure and install the pipeline for the **language your books are written in**. Make a note of the name of the pipeline (something like "fi_core_news_sm" for Finnish, or "ru_core_news_sm" for Russian).
 
-You will need the [opencode](https://opencode.ai) CLI installed and logged in with an OpenCode Go account (run `opencode` once and follow the login flow). Translations are made with deepseek models served by the OpenCode Go API, and the API key is picked up automatically from opencode's auth file, or from the `OPENCODE_API_KEY` environment variable if you prefer.
+You will need access to an OpenAI-compatible chat-completions endpoint. The checked-in `translate.config.json` points at the local LiteLLM gateway used by omp (`http://localhost:4000/v1`, model `deepseek-direct`) and reads the key from `LITELLM_MASTER_KEY`. Everything provider-specific — base URL, model, API-key environment variable, headers, JSON mode, thinking, temperature, token limits, timeouts, retries, batch size and worker count — lives in that file; none of it is baked into the code. The legacy OpenCode Go path (opencode CLI login / `OPENCODE_API_KEY`) still works when no config is present.
 
 ## book-to-flashcard
 
@@ -49,7 +49,36 @@ Anki (<https://apps.ankiweb.net/>) is a flashcard application that uses spaced r
 
 **book-to-flashcard** uses AI language parsing to try and split long sentences in such a way that they can be individually understood and translated without context.
 
-Translations are made with deepseek models through the OpenCode Go API (the `opencode-go` provider). Cards are translated in batches, and each batch is translated in the context of the text that immediately precedes it in the book, so pronouns, references and register stay consistent across cards without a round trip per card.
+Translations are made through the configured OpenAI-compatible endpoint. Cards are translated in batches, and each batch is translated in the context of the text that immediately precedes it in the book, so pronouns, references and register stay consistent across cards without a round trip per card.
+
+### Translation provider configuration
+
+`translate.config.json` is the source of truth for the provider and translation defaults:
+
+```json
+{
+  "provider": {
+    "base_url": "http://localhost:4000/v1",
+    "model": "deepseek-direct",
+    "api_key_env": "LITELLM_MASTER_KEY",
+    "headers": { "User-Agent": "books-to-anki-translator/1.0" },
+    "session_header": null,
+    "json_mode": true,
+    "disable_thinking": true,
+    "temperature": 0.0,
+    "max_tokens": 12000,
+    "timeout_seconds": 600,
+    "max_retries": 2
+  },
+  "translation": { "lang": "English", "batch_size": 30, "workers": 2 }
+}
+```
+
+- `api_key_env` names the environment variable; the key itself never goes in the file.
+- `session_header` is `x-opencode-session` for OpenCode Go and `null` for LiteLLM.
+- `disable_thinking` is on for batch translation; reasoning models otherwise spend the output budget on reasoning and return `finish_reason=length`.
+- CLI flags override the file: `--config`, `--base-url`, `--model`, `--api-key-env`, `--lang`, `--batch-size`, `--workers`.
+- A missing default config falls back to the legacy OpenCode Go defaults. An explicitly passed `--config` that is missing is an error.
 
 The length of the "text chunks" and the size of the font on the cards is configurable.
 

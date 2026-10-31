@@ -264,8 +264,10 @@ class TestMain:
             fh.writelines(card_to_line(c) + "\n" for c in make_cards("book", n))
         return src
 
-    def make_factory(self, translator):
-        def factory(model=None, batch_size=None):
+    def make_factory(self, translator, captured=None):
+        def factory(**kwargs):
+            if captured is not None:
+                captured.update(kwargs)
             return translator
 
         return factory
@@ -311,3 +313,99 @@ class TestMain:
         assert rc == 0
         assert (Path("/") / "out" / "author2" / "book.jsonl").exists()
         assert not (Path("/") / "out" / "author1" / "book.jsonl").exists()
+
+
+class TestConfig:
+    def make_factory(self, translator, captured=None):
+        def factory(**kwargs):
+            if captured is not None:
+                captured.update(kwargs)
+            return translator
+
+        return factory
+
+    def write_config(self, path: Path, model: str = "primary") -> None:
+        path.write_text(
+            json.dumps(
+                {
+                    "provider": {
+                        "base_url": "http://localhost:4000/v1",
+                        "model": model,
+                        "api_key_env": "LITELLM_MASTER_KEY",
+                        "headers": {"User-Agent": "side-by-side/1.0"},
+                        "session_header": None,
+                        "json_mode": True,
+                        "disable_thinking": False,
+                        "temperature": 0.1,
+                        "max_tokens": 4096,
+                        "timeout_seconds": 120,
+                        "max_retries": 3,
+                    },
+                    "translation": {"lang": "English", "batch_size": 30, "workers": 1},
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    def write_book(self, src: Path) -> None:
+        author = src / "author"
+        author.mkdir(parents=True)
+        with open(author / "book.jsonl", "w", encoding="utf-8") as fh:
+            fh.writelines(card_to_line(c) + "\n" for c in make_cards("book", 1))
+
+    def test_main_passes_provider_and_translation_config_to_the_builder(self, fs):
+        src = Path("/") / "src"
+        self.write_book(src)
+        cfg = Path("/") / "translate.config.json"
+        self.write_config(cfg)
+        captured = {}
+        translator = ScriptedTranslator(["T1"])
+
+        rc = main(
+            ["--input", str(src), "--output", "/out", "--config", str(cfg)],
+            translator_factory=self.make_factory(translator, captured),
+        )
+
+        assert rc == 0
+        assert captured["base_url"] == "http://localhost:4000/v1"
+        assert captured["model"] == "primary"
+        assert captured["api_key_env"] == "LITELLM_MASTER_KEY"
+        assert captured["extra_headers"] == {"User-Agent": "side-by-side/1.0"}
+        assert captured["session_header"] is None
+        assert captured["json_mode"] is True
+        assert captured["disable_thinking"] is False
+        assert captured["temperature"] == 0.1
+        assert captured["max_tokens"] == 4096
+        assert captured["timeout"] == 120
+        assert captured["max_retries"] == 3
+        assert captured["batch_size"] == 30
+        assert translator.calls[0][2] == "English"
+
+    def test_cli_model_overrides_config(self, fs):
+        src = Path("/") / "src"
+        self.write_book(src)
+        cfg = Path("/") / "translate.config.json"
+        self.write_config(cfg)
+        captured = {}
+
+        rc = main(
+            [
+                "--input", str(src), "--output", "/out", "--config", str(cfg),
+                "--model", "deepseek-direct",
+            ],
+            translator_factory=self.make_factory(ScriptedTranslator(["T1"]), captured),
+        )
+
+        assert rc == 0
+        assert captured["model"] == "deepseek-direct"
+
+    def test_explicit_missing_config_fails_loudly(self, fs):
+        src = Path("/") / "src"
+        self.write_book(src)
+
+        rc = main(
+            ["--input", str(src), "--output", "/out", "--config", "/missing.json"],
+            translator_factory=self.make_factory(ScriptedTranslator(["T1"])),
+        )
+
+        assert rc == 1

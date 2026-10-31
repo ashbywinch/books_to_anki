@@ -528,3 +528,98 @@ class TestFindApiKey:
         monkeypatch.setenv("XDG_DATA_HOME", "/nonexistent")
         with pytest.raises(OpenCodeGoError):
             find_api_key()
+
+
+class TestSessionHeader:
+    def test_requests_carry_a_stable_session_id(self):
+        # OpenCode Go requires x-opencode-session for routing/prompt caching.
+        # The same translator must reuse one stable id across calls.
+        translator, calls = make_translator(
+            [
+                completion('[{"index":1,"source":"book 0","translation":"one"}]'),
+                completion('[{"index":1,"source":"book 0","translation":"one"}]'),
+            ]
+        )
+        cards = make_cards("book", 1)
+        translator.translate_cards(cards, "English", "")
+        translator.translate_cards(cards, "English", "")
+
+        assert len(calls) == 2
+        first = calls[0].headers.get("X-opencode-session")
+        second = calls[1].headers.get("X-opencode-session")
+        assert first
+        assert first == second
+
+    def test_session_id_can_be_injected(self):
+        urlopen, calls = make_fake_urlopen(
+            [completion('[{"index":1,"source":"book 0","translation":"one"}]')]
+        )
+        translator = OpenCodeGoTranslator(
+            api_key="test-key", urlopen=urlopen, session_id="session-123"
+        )
+        translator.translate_cards(make_cards("book", 1), "English", "")
+        assert calls[0].headers.get("X-opencode-session") == "session-123"
+
+
+class TestProviderConfig:
+    def test_uses_configured_base_url_model_and_headers(self):
+        urlopen, calls = make_fake_urlopen(
+            [completion('[{"index":1,"source":"book 0","translation":"one"}]')]
+        )
+        translator = OpenCodeGoTranslator(
+            api_key="test-key",
+            base_url="http://localhost:4000/v1",
+            model="primary",
+            extra_headers={"User-Agent": "side-by-side/1.0", "X-Test": "yes"},
+            session_header="x-opencode-session",
+            session_id="session-123",
+            urlopen=urlopen,
+        )
+        translator.translate_cards(make_cards("book", 1), "English", "")
+
+        assert calls[0].full_url == "http://localhost:4000/v1/chat/completions"
+        assert json.loads(calls[0].data)["model"] == "primary"
+        assert calls[0].headers["User-agent"] == "side-by-side/1.0"
+        assert calls[0].headers["X-test"] == "yes"
+        assert calls[0].headers["X-opencode-session"] == "session-123"
+
+    def test_session_header_can_be_disabled(self):
+        urlopen, calls = make_fake_urlopen(
+            [completion('[{"index":1,"source":"book 0","translation":"one"}]')]
+        )
+        translator = OpenCodeGoTranslator(
+            api_key="test-key", session_header=None, urlopen=urlopen
+        )
+        translator.translate_cards(make_cards("book", 1), "English", "")
+        assert "X-opencode-session" not in calls[0].headers
+
+    def test_api_key_is_read_from_the_configured_environment_variable(self, monkeypatch):
+        monkeypatch.setenv("MY_TRANSLATION_KEY", "env-secret")
+        urlopen, calls = make_fake_urlopen(
+            [completion('[{"index":1,"source":"book 0","translation":"one"}]')]
+        )
+        translator = OpenCodeGoTranslator(
+            api_key_env="MY_TRANSLATION_KEY", urlopen=urlopen
+        )
+        translator.translate_cards(make_cards("book", 1), "English", "")
+        assert calls[0].headers["Authorization"] == "Bearer env-secret"
+
+    def test_missing_configured_api_key_fails_loudly(self, monkeypatch):
+        monkeypatch.delenv("MISSING_TRANSLATION_KEY", raising=False)
+        with pytest.raises(OpenCodeGoError, match="MISSING_TRANSLATION_KEY"):
+            OpenCodeGoTranslator(api_key_env="MISSING_TRANSLATION_KEY")
+
+    def test_json_mode_and_thinking_can_be_disabled(self):
+        urlopen, calls = make_fake_urlopen(
+            [completion('[{"index":1,"source":"book 0","translation":"one"}]')]
+        )
+        translator = OpenCodeGoTranslator(
+            api_key="test-key",
+            json_mode=False,
+            disable_thinking=False,
+            urlopen=urlopen,
+        )
+        translator.translate_cards(make_cards("book", 1), "English", "")
+        payload = json.loads(calls[0].data)
+        assert "response_format" not in payload
+        assert "thinking" not in payload

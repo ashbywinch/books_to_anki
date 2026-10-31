@@ -19,6 +19,7 @@ import re
 import time
 import urllib.error
 import urllib.request
+import uuid
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Callable
@@ -88,7 +89,7 @@ class OpenCodeGoError(RuntimeError):
 
 
 class OpenCodeGoTranslator(Translator):
-    """Translates cards via the OpenCode Go chat completions API."""
+    """Translates cards via an OpenAI-compatible chat completions API."""
 
     # Batch size is capped well below the API's comfortable output size: the
     # model reliably stops early (dropping the last few fragments) on larger
@@ -100,6 +101,7 @@ class OpenCodeGoTranslator(Translator):
         model: str = DEFAULT_MODEL,
         base_url: str = DEFAULT_BASE_URL,
         api_key: str | None = None,
+        api_key_env: str | None = None,
         max_tokens: int = 12000,
         timeout: float = 600.0,
         max_retries: int = 2,
@@ -107,15 +109,34 @@ class OpenCodeGoTranslator(Translator):
         disable_thinking: bool = True,
         batch_size: int | None = None,
         temperature: float = 0.0,
+        session_id: str | None = None,
+        session_header: str | None = "x-opencode-session",
+        extra_headers: dict[str, str] | None = None,
+        json_mode: bool = True,
     ):
         self.model = model
         self.base_url = base_url.rstrip("/")
-        self.api_key = api_key if api_key is not None else find_api_key()
+        if api_key is not None:
+            self.api_key = api_key
+        elif api_key_env:
+            self.api_key = os.environ.get(api_key_env, "")
+            if not self.api_key:
+                raise OpenCodeGoError(
+                    f"{api_key_env} is not set; the translation provider needs an API key"
+                )
+        else:
+            self.api_key = find_api_key()
         self.max_tokens = max_tokens
         self.timeout = timeout
         self.max_retries = max_retries
         self.disable_thinking = disable_thinking
         self.temperature = temperature
+        self.json_mode = json_mode
+        self.extra_headers = dict(extra_headers or {})
+        # Only OpenCode Go needs this header; LiteLLM and other OpenAI-compatible
+        # gateways do not. It is null in the provider config for those.
+        self.session_header = session_header
+        self.session_id = session_id or uuid.uuid4().hex
         if batch_size is not None:
             self.batch_size = batch_size
         # injectable for tests
@@ -132,27 +153,32 @@ class OpenCodeGoTranslator(Translator):
                 {"role": "user", "content": user},
             ],
             "max_tokens": self.max_tokens,
-            # structured output: the API guarantees a syntactically valid JSON
-            # response, eliminating truncated/bare-object responses
-            "response_format": {"type": "json_object"},
             # deterministic decoding: structured tasks are far more consistent
             # at temperature 0 (reduces alignment drift and duplicates)
             "temperature": self.temperature,
         }
+        if self.json_mode:
+            # structured output: the API guarantees syntactically valid JSON,
+            # eliminating truncated/bare-object responses
+            payload["response_format"] = {"type": "json_object"}
         if self.disable_thinking:
             # deepseek-v4-flash otherwise spends its whole output budget on
             # reasoning and returns empty translations for large batches
             payload["thinking"] = {"type": "disabled"}
         body = json.dumps(payload).encode("utf-8")
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}",
+            # Cloudflare in front of the API rejects the urllib default UA
+            "User-Agent": "opencode/1.14.20",
+        }
+        headers.update(self.extra_headers)
+        if self.session_header:
+            headers[self.session_header] = self.session_id
         request = urllib.request.Request(
             f"{self.base_url}/chat/completions",
             data=body,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.api_key}",
-                # Cloudflare in front of the API rejects the urllib default UA
-                "User-Agent": "opencode/1.14.20",
-            },
+            headers=headers,
             method="POST",
         )
         delay = 2.0

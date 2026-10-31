@@ -39,6 +39,7 @@ from book_to_flashcards.translate_cards import Translator, translate_cards
 logger = logging.getLogger("translate_books")
 
 HOLE_ATTEMPTS = 3
+DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[2] / "translate.config.json"
 
 
 def card_to_line(card: Card) -> str:
@@ -173,10 +174,13 @@ def main(
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--input", required=True, help="folder of per-book jsonl files")
     ap.add_argument("--output", required=True, help="staging folder to write translated books")
-    ap.add_argument("--workers", type=int, default=4, help="parallel worker threads (default 4)")
-    ap.add_argument("--batch-size", type=int, default=None, help="cards per translation API call (default: translator default)")
-    ap.add_argument("--lang", default="English", help="language to translate into")
-    ap.add_argument("--model", default="deepseek-v4-flash", help="OpenCode Go model")
+    ap.add_argument("--config", default=None, help=f"translation config (default: {DEFAULT_CONFIG_PATH})")
+    ap.add_argument("--workers", type=int, default=None, help="parallel worker threads (default: config, else 4)")
+    ap.add_argument("--batch-size", type=int, default=None, help="cards per translation API call (default: config)")
+    ap.add_argument("--lang", default=None, help="language to translate into (default: config, else English)")
+    ap.add_argument("--model", default=None, help="provider model id (default: config)")
+    ap.add_argument("--base-url", default=None, help="OpenAI-compatible base URL (default: config)")
+    ap.add_argument("--api-key-env", default=None, help="environment variable holding the API key (default: config)")
     ap.add_argument("--only-author", default="", help="restrict to one author subfolder")
     ap.add_argument("--limit", type=int, default=0, help="process at most this many books (0 = all)")
     args = ap.parse_args(argv)
@@ -185,6 +189,33 @@ def main(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
     )
+
+    config_path = Path(args.config) if args.config else DEFAULT_CONFIG_PATH
+    if args.config and not config_path.exists():
+        logger.error("config file does not exist: %s", config_path)
+        return 1
+    try:
+        config = (
+            json.loads(config_path.read_text(encoding="utf-8"))
+            if config_path.exists()
+            else {}
+        )
+    except (OSError, json.JSONDecodeError) as e:
+        if args.config:
+            logger.error("could not read config %s: %s", config_path, e)
+            return 1
+        # A missing or unreadable default config is not an error: the
+        # provider defaults remain usable for the legacy OpenCode path.
+        config = {}
+    provider = config.get("provider") or {}
+    translation = config.get("translation") or {}
+
+    base_url = args.base_url or provider.get("base_url")
+    model = args.model or provider.get("model")
+    api_key_env = args.api_key_env or provider.get("api_key_env")
+    lang = args.lang or translation.get("lang") or "English"
+    batch_size = args.batch_size if args.batch_size is not None else translation.get("batch_size")
+    workers = args.workers if args.workers is not None else translation.get("workers", 4)
 
     inp = Path(args.input)
     out = Path(args.output)
@@ -203,20 +234,36 @@ def main(
 
     if translator_factory is None:
         translator_factory = OpenCodeGoTranslator
-    translator = translator_factory(
-        model=args.model,
-        batch_size=args.batch_size if args.batch_size else None,
-    )
+    translator_kwargs = {
+        "model": model,
+        "base_url": base_url or None,
+        "api_key_env": api_key_env,
+        "extra_headers": provider.get("headers") or {},
+        "session_header": provider.get("session_header", "x-opencode-session"),
+        "json_mode": provider.get("json_mode", True),
+        "disable_thinking": provider.get("disable_thinking", True),
+        "temperature": provider.get("temperature", 0.0),
+        "max_tokens": provider.get("max_tokens", 12000),
+        "timeout": provider.get("timeout_seconds", 600.0),
+        "max_retries": provider.get("max_retries", 2),
+        "batch_size": batch_size,
+    }
+    # Omit unset provider identity fields so constructor defaults stay the
+    # single source of truth; explicit nulls (e.g. session_header) are kept.
+    for key in ("model", "base_url", "api_key_env", "batch_size"):
+        if translator_kwargs[key] is None:
+            del translator_kwargs[key]
+    translator = translator_factory(**translator_kwargs)
     logger.info(
-        "translating %d books (%s -> %s) with %d workers",
-        len(jobs), args.lang, args.model, args.workers,
+        "translating %d books (%s -> %s at %s) with %d workers",
+        len(jobs), lang, model or "provider default", base_url or "provider default", workers,
     )
 
     stats = {"ok": 0, "skipped": 0, "failed": 0, "crashed": 0, "empty-input": 0}
     cards_done = 0
     t0 = time.time()
-    with ThreadPoolExecutor(max_workers=args.workers) as pool:
-        futures = {pool.submit(process_book, src, dst, translator, args.lang): src for src, dst in jobs}
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(process_book, src, dst, translator, lang): src for src, dst in jobs}
         for fut in as_completed(futures):
             src = futures[fut]
             try:

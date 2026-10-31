@@ -1,0 +1,22 @@
+{
+  "provider": {
+    "base_url": "http://localhost:4000/v1",
+    "model": "deepseek-direct",
+    "api_key_env": "LITELLM_MASTER_KEY",
+    "headers": {
+      "User-Agent": "books-to-anki-translator/1.0"
+    },
+    "session_header": null,
+    "json_mode": true,
+    "disable_thinking": true,
+    "temperature": 0.0,
+    "max_tokens": 12000,
+    "timeout_seconds": 600,
+    "max_retries": 2
+  },
+  "translation": {
+    "lang": "English",
+    "batch_size": 30,
+    "workers": 2
+  }
+}
