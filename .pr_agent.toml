@@ -9,6 +9,11 @@ ai_timeout = 1800  # review generation for the ~89K-token diff needs >10 min; 60
 propagate_tool_errors = true
 fallback_models = []
 repo_context_from_default_branch = false
+# The renderer caps rendered context at repo_context_max_lines (default 500) and
+# STOPS at the first file that overruns - every later file is dropped silently.
+# These files are ~272 lines together. Raise this whenever the list grows.
+# See pr_agent/algo/repo_context.py.
+repo_context_max_lines = 600
 repo_context_files = [
     "docs/coding-standards.md",
     "docs/testing-standards.md",
@@ -21,7 +26,7 @@ require_tests_review = true
 require_security_review = true
 require_estimate_effort_to_review = true
 num_max_findings = 5
-extra_instructions = "In addition to your standard review, check the PR against each file in repo_context_files. Add a 'Compliance' section per doc: 'Coding Standards', 'Testing Standards', 'Documentation Standards', 'Card Pipeline'. For each, list any violations found, or state 'No violations' if the PR complies."
+extra_instructions = "In addition to your standard review, check the PR against each file in repo_context_files. Report every violation as its own finding with path:line and the rule it breaks; never report something as compliant unless you checked it against the file that states the rule."
 
 [github_action_config]
 handle_push_trigger = true
