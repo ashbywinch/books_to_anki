@@ -17,13 +17,13 @@ jobs:
       - uses: the-pr-agent/pr-agent@v0.41.1
         id: pr-agent
         env:
-          OPENAI_KEY: ${{ secrets.OPENCODE_GO_BOOKS_API_KEY }}
-          OPENAI_BASE_URL: https://opencode.ai/zen/go/v1
+          OPENAI_KEY: ${{ secrets.CLOUDFLARE_AIGATEWAY_TOKEN }}
+          OPENAI_BASE_URL: https://gateway.ai.cloudflare.com/v1/e21a5be58ac1e8f7d5619539feb2dc3d/default/compat
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # SECURITY: pin the config to a maintainer-controlled branch. Using
           # ${{ github.head_ref }} lets any same-repo branch ship its own
           # .pr_agent.toml (e.g. api_base pointing at an attacker endpoint)
-          # and exfiltrate OPENCODE_GO_BOOKS_API_KEY.
+          # and exfiltrate CLOUDFLARE_AIGATEWAY_TOKEN.
           PR_AGENT_CONFIG_BRANCH: pr-agent-config
 
       - name: Check review succeeded
